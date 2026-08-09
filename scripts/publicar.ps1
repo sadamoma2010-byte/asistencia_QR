@@ -86,16 +86,19 @@ Bien 'sin archivos sensibles'
 
 # ── 2. Numero de version ─────────────────────────────────────────
 $ultima = git tag --list 'v*' --sort=-v:refname | Select-Object -First 1
+
 if ($ultima -match '^v(\d+)\.(\d+)\.(\d+)$') {
   $mayor = [int]$Matches[1]; $menor = [int]$Matches[2]; $parche = [int]$Matches[3]
-} else {
-  $mayor = 1; $menor = 0; $parche = -1   # la primera publicacion sera v1.0.0
-}
 
-switch ($Tipo) {
-  'mayor'  { $mayor++; $menor = 0; $parche = 0 }
-  'menor'  { $menor++; $parche = 0 }
-  'parche' { $parche++ }
+  switch ($Tipo) {
+    'mayor'  { $mayor++; $menor = 0; $parche = 0 }
+    'menor'  { $menor++; $parche = 0 }
+    'parche' { $parche++ }
+  }
+} else {
+  # La primera publicacion siempre es v1.0.0, sea cual sea el tipo indicado:
+  # no hay version anterior sobre la que incrementar nada.
+  $mayor = 1; $menor = 0; $parche = 0
 }
 
 $version = "v$mayor.$menor.$parche"
@@ -183,16 +186,22 @@ if ($ConCopia) {
 
 # ── 5. Commit y etiqueta ─────────────────────────────────────────
 Paso 'Confirmando los cambios'
-git add -A | Out-Null
+
+# git escribe avisos normales por stderr (conversion de fin de linea, por
+# ejemplo). Con ErrorActionPreference = Stop eso abortaria el script, asi que
+# se redirige la salida y el resultado se decide solo por el codigo de salida.
+$ErrorActionPreference = 'Continue'
+
+git add -A 2>&1 | Out-Null
 
 $mensaje = "$version - $Descripcion"
-git commit -q -m $mensaje
+git commit -q -m $mensaje 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) { Alto 'No fue posible confirmar los cambios.'; exit 1 }
 
-git tag -a $version -m $mensaje
+git tag -a $version -m $mensaje 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
   Alto "La etiqueta $version ya existe."
-  git reset -q --soft HEAD~1     # deshace el commit, conserva los archivos
+  git reset -q --soft HEAD~1 2>&1 | Out-Null   # deshace el commit, conserva los archivos
   exit 1
 }
 Bien "commit y etiqueta $version"
@@ -217,7 +226,7 @@ if (-not $remoto) {
 }
 
 Paso 'Enviando a GitHub'
-git push origin main --follow-tags
+git push origin main --follow-tags 2>&1 | ForEach-Object { Nota $_ }
 if ($LASTEXITCODE -ne 0) {
   Write-Host ''
   Alto 'El envio fallo. El commit y la etiqueta quedaron guardados en local.'

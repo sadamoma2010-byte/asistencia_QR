@@ -186,6 +186,36 @@ Migrar más adelante a PostgreSQL requiere cambiar `provider` en `schema.prisma`
 restituir los tipos nativos y las enumeraciones, y regenerar las migraciones.
 La capa de servicios no cambia.
 
+## Publicar cambios en GitHub
+
+La primera vez, para autenticarse (abre el navegador; sus datos los escribe
+usted en la página de GitHub):
+
+```powershell
+.\scripts\conectar-github.ps1
+```
+
+Después, cada vez que quiera publicar un cambio:
+
+```powershell
+.\scripts\publicar.ps1 "descripción del cambio"
+```
+
+Ese único comando calcula el número de versión, escribe su registro en
+[`versiones/`](versiones/), confirma los cambios, crea la etiqueta y lo envía
+a GitHub. Antes de subir nada comprueba que no se filtren el archivo `.env`,
+la base de datos ni las fotografías de los docentes.
+
+| Comando | Efecto |
+|---|---|
+| `.\scripts\publicar.ps1 "arreglo"` | 1.0.0 → 1.0.1 |
+| `.\scripts\publicar.ps1 "función nueva" -Tipo menor` | 1.0.1 → 1.1.0 |
+| `.\scripts\publicar.ps1 "cambio de fondo" -Tipo mayor` | 1.1.0 → 2.0.0 |
+| `.\scripts\publicar.ps1 "entrega" -ConCopia` | Añade un `.zip` de esa versión |
+| `.\scripts\publicar.ps1 "prueba" -SinEnviar` | Solo local, sin subir |
+
+Ver [`versiones/README.md`](versiones/README.md) para el detalle.
+
 ## Pendientes de definición
 
 Ver [`PENDIENTES.md`](PENDIENTES.md).
