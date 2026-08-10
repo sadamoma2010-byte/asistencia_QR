@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { type User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { createHash, timingSafeEqual } from 'node:crypto';
 
 import { AuditAction, RecordStatus } from '../../common/enums';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -18,6 +19,30 @@ import type { JwtPayload } from './strategies/jwt.strategy';
 
 const MODULE = 'Autenticación';
 const GENERIC_ERROR = 'Credenciales incorrectas';
+
+/**
+ * Huella del refresh token para guardarlo sin dejarlo en claro.
+ *
+ * Se usa SHA-256 y no bcrypt a propósito. bcrypt trunca su entrada a 72
+ * bytes, y un JWT ocupa unos 276 cuyos primeros 72 son idénticos para todos
+ * los tokens de un mismo usuario: cabecera más el comienzo del `sub`. Con
+ * bcrypt, un token revocado seguía validando contra la sesión siguiente del
+ * mismo usuario y la rotación no servía de nada.
+ *
+ * bcrypt sigue siendo lo correcto para las contraseñas, que son cortas y de
+ * baja entropía. Un JWT firmado ya es impredecible: basta un resumen que no
+ * trunque.
+ */
+function hashRefreshToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+/** Comparación en tiempo constante, para no filtrar información por el tiempo. */
+function safeEquals(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
+}
 
 export interface AuthTokens {
   accessToken: string;
@@ -133,12 +158,12 @@ export class AuthService {
       },
     );
 
-    // El refresh token se persiste hasheado; nunca en claro.
+    // El refresh token se persiste con su huella; nunca en claro.
     const decoded = this.jwt.decode(refreshToken) as { exp: number };
     await this.prisma.refreshToken.create({
       data: {
         userId: user.id,
-        tokenHash: await bcrypt.hash(refreshToken, 10),
+        tokenHash: hashRefreshToken(refreshToken),
         expiresAt: new Date(decoded.exp * 1000),
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent,
@@ -172,13 +197,8 @@ export class AuthService {
       take: 10,
     });
 
-    let matched: (typeof stored)[number] | undefined;
-    for (const candidate of stored) {
-      if (await bcrypt.compare(refreshToken, candidate.tokenHash)) {
-        matched = candidate;
-        break;
-      }
-    }
+    const huella = hashRefreshToken(refreshToken);
+    const matched = stored.find((candidate) => safeEquals(candidate.tokenHash, huella));
     if (!matched) throw new UnauthorizedException('Sesión no válida. Inicie sesión nuevamente.');
 
     const user = await this.prisma.user.findFirst({

@@ -56,8 +56,11 @@ export class AuditService {
           ipAddress: payload.context?.ipAddress ?? null,
           userAgent: payload.context?.userAgent ?? null,
           device: payload.context?.device ?? null,
-          // JSONB: se almacena el objeto tal cual, consultable con operadores JSON
-          metadata: (payload.metadata ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+          // JSONB: se almacena el objeto tal cual, consultable con operadores JSON.
+          // Sin detalle se usa DbNull, que deja la columna vacía. JsonNull
+          // escribiría el valor JSON `null`, y entonces un evento sin detalle
+          // sería indistinguible de uno que sí lo tiene.
+          metadata: (payload.metadata ?? Prisma.DbNull) as Prisma.InputJsonValue,
         },
       });
     } catch (error) {

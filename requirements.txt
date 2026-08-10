@@ -1,0 +1,47 @@
+# Sistema Web de Asistencia Docente por QR — dependencias de Python
+#
+# Cada bloque indica qué librería del proyecto original sustituye.
+# Instalación:  python -m venv .venv && .venv\Scripts\pip install -r requirements.txt
+
+# ── Servidor web ── sustituye a NestJS + Express ─────────────────────
+Flask>=3.0,<4.0
+Werkzeug>=3.0,<4.0
+Flask-Cors>=4.0,<6.0
+
+# ── Base de datos ── sustituye a Prisma ──────────────────────────────
+SQLAlchemy>=2.0,<3.0
+Flask-SQLAlchemy>=3.1,<4.0
+psycopg2-binary>=2.9,<3.0
+
+# ── Validación de datos ── sustituye a class-validator y Zod ─────────
+pydantic>=2.6,<3.0
+email-validator>=2.1,<3.0
+
+# ── Autenticación ── sustituye a @nestjs/jwt y bcrypt ────────────────
+PyJWT>=2.8,<3.0
+bcrypt>=4.1,<5.0
+
+# ── Límite de peticiones ── sustituye a @nestjs/throttler ────────────
+Flask-Limiter>=3.5,<4.0
+
+# ── Documentación de la API ── sustituye a @nestjs/swagger ───────────
+apispec>=6.4,<7.0
+flask-swagger-ui>=4.11,<5.0
+
+# ── Exportación a Excel ── sustituye a ExcelJS ───────────────────────
+openpyxl>=3.1,<4.0
+
+# ── Imágenes: fotografías de docentes ── sustituye a sharp ───────────
+Pillow>=10.2,<12.0
+
+# ── Código QR institucional ── sustituye a la librería qrcode del frontend
+segno>=1.6,<2.0
+
+# ── Zonas horarias ── sustituye a date-fns-tz ────────────────────────
+tzdata>=2024.1
+
+# ── Variables de entorno ── sustituye a @nestjs/config ───────────────
+python-dotenv>=1.0,<2.0
+
+# ── Servidor de producción ── sustituye a `node dist/main` ───────────
+waitress>=3.0,<4.0
