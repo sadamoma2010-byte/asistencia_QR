@@ -116,6 +116,60 @@ Cada módulo conserva la misma separación que tenía en NestJS:
 
 ---
 
+## Cómo se comprobó
+
+No se dio nada por bueno leyendo el código. Cada afirmación de esta página está
+respaldada por una comprobación que puede volver a ejecutarse.
+
+| Comprobación | Comando | Resultado |
+|---|---|---|
+| Los modelos casan con las tablas reales | `python herramientas/verificar_modelos.py` | 13 de 13 |
+| La sesión funciona como antes | `python herramientas/probar_auth.py` | 21 de 21 |
+| **Cada respuesta es igual a la del original** | `python herramientas/comparar_api.py` | **42 de 42** |
+| Las pantallas responden con su contenido | `python herramientas/probar_pantallas.py` | 15 de 15 |
+| Las reglas RN001–RN009 se comportan igual | `python herramientas/probar_reglas.py` | 9 de 9 |
+
+`comparar_api.py` es la comprobación central: levanta la aplicación Python,
+llama al backend TypeScript original y contrasta ambas respuestas campo por
+campo. Solo se toleran dos clases de diferencia, y ambas están justificadas:
+
+- **Marcas de tiempo y tokens**, que no pueden coincidir entre dos ejecuciones.
+- **El orden de los empates**, allí donde el original no define ninguno: una
+  relación sin `orderBy` o un listado ordenado por una columna con valores
+  repetidos. En esos casos se compara el conjunto de datos, no la secuencia.
+
+---
+
+## Fallos del sistema original encontrados por el camino
+
+Portar obliga a leer cada regla con lupa, y eso destapó tres defectos que
+llevaban tiempo en la versión TypeScript. Los tres se corrigieron **en los dos
+sistemas**, no solo en el nuevo.
+
+**1 · La auditoría no distinguía «sin detalle» de «detalle vacío».**
+Se escribía el valor JSON `null` en lugar de dejar la columna vacía, así que
+una consulta por eventos con detalle devolvía también los que no lo tenían.
+Afectaba a 128 registros.
+
+**2 · La rotación de tokens de sesión no servía de nada.**
+El token de refresco se guardaba con bcrypt, que trunca su entrada a 72 bytes.
+Un JWT ocupa 276 y sus primeros 72 son idénticos para todos los tokens de un
+mismo usuario, de modo que un token revocado seguía validando contra cualquier
+sesión posterior. Sustituido por SHA-256 con comparación en tiempo constante.
+
+**3 · El código sugerido para un docente nuevo ya estaba ocupado.**
+`/teachers/next-code` ordenaba los códigos como texto y tomaba el mayor, que
+tras cualquier baja era uno con sufijo (`DOC-0007.DEL.1786282119238`).
+`Number()` sobre eso da `NaN`, y la sugerencia caía siempre en `DOC-0001`.
+Pedir el código sugerido y usarlo devolvía «Ya existe un docente con ese
+código».
+
+Además se añadió un **desempate estable** en todos los listados. Sin él, dos
+filas con la misma clave de orden pueden intercambiarse entre consultas, y al
+paginar eso hace que una fila aparezca en dos páginas y otra en ninguna.
+
+---
+
 ## Lo que se conserva sin tocar
 
 - Las 13 tablas, con sus claves, restricciones, índices, vistas y funciones

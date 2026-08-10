@@ -1,0 +1,67 @@
+{% extends "panel.html" %}
+{% block titulo %}Configuración · Sistema de Asistencia Docente{% endblock %}
+
+{% block contenido %}
+<div class="mx-auto max-w-4xl space-y-5 animate-fade-in">
+
+  <div class="surface-card p-5">
+    <h2 class="text-2xl font-bold tracking-tight text-foreground">Configuración</h2>
+    <p class="mt-1 text-sm text-muted-foreground">
+      Parámetros del sistema. Los cambios quedan registrados en la auditoría.
+    </p>
+  </div>
+
+  {% for grupo in grupos %}
+  <div class="surface-card p-5">
+    <h3 class="text-base font-semibold capitalize text-foreground">{{ grupo.group }}</h3>
+
+    <div class="mt-4 space-y-4">
+      {% for ajuste in grupo.settings %}
+      <div class="flex flex-col gap-2 border-b border-border pb-4 last:border-0 last:pb-0 sm:flex-row sm:items-center">
+        <div class="min-w-0 sm:w-1/2">
+          <p class="text-sm font-medium text-foreground">{{ ajuste.label }}</p>
+          {% if ajuste.description %}
+          <p class="mt-0.5 text-xs text-muted-foreground">{{ ajuste.description }}</p>
+          {% endif %}
+          <code class="mt-1 inline-block rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{{ ajuste.key }}</code>
+        </div>
+
+        <div class="flex flex-1 items-center gap-2">
+          <input type="{{ 'number' if ajuste.type == 'NUMBER' else 'text' }}"
+                 value="{{ ajuste.value }}" data-clave="{{ ajuste.key }}"
+                 class="h-10 w-full rounded-lg border border-input bg-card px-3 text-sm
+                        transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30">
+          <button type="button" data-guardar="{{ ajuste.key }}"
+                  class="inline-flex h-10 shrink-0 items-center rounded-lg bg-primary px-3 text-sm
+                         font-semibold text-primary-foreground transition hover:bg-primary-hover">
+            Guardar
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block guiones_pagina %}
+<script>
+  document.querySelectorAll('[data-guardar]').forEach((boton) =>
+    boton.addEventListener('click', async () => {
+      const clave = boton.dataset.guardar;
+      const campo = document.querySelector(`[data-clave="${clave}"]`);
+
+      boton.disabled = true;
+      try {
+        await Api.patch(`/settings/${encodeURIComponent(clave)}`, { value: campo.value.trim() });
+        Interfaz.aviso('Parámetro actualizado', 'exito');
+      } catch (error) {
+        Interfaz.aviso(error.mensaje, 'error');
+      } finally {
+        boton.disabled = false;
+      }
+    }),
+  );
+</script>
+{% endblock %}

@@ -110,16 +110,26 @@ export class TeachersService {
     return rows.map((t) => this.present(t));
   }
 
-  /** Sugiere el siguiente código disponible con el formato DOC-0000. */
+  /**
+   * Sugiere el siguiente código disponible con el formato DOC-0000.
+   *
+   * Al eliminar un docente su código recibe el sufijo `.DEL.<marca>` para
+   * liberar la clave única. Hay que quedarse solo con la parte numérica: sin
+   * eso, `Number('0007.DEL.1786282119238')` da NaN y la sugerencia caía
+   * siempre en DOC-0001, un código que ya estaba ocupado.
+   */
   async suggestCode(): Promise<{ code: string }> {
-    const last = await this.prisma.teacher.findFirst({
+    const codes = await this.prisma.teacher.findMany({
       where: { code: { startsWith: 'DOC-' } },
-      orderBy: { code: 'desc' },
       select: { code: true },
     });
 
-    const next = last ? Number(last.code.replace('DOC-', '')) + 1 : 1;
-    return { code: `DOC-${String(Number.isNaN(next) ? 1 : next).padStart(4, '0')}` };
+    const highest = codes.reduce((max, { code }) => {
+      const value = Number(code.replace('DOC-', '').split('.')[0]);
+      return Number.isNaN(value) ? max : Math.max(max, value);
+    }, 0);
+
+    return { code: `DOC-${String(highest + 1).padStart(4, '0')}` };
   }
 
   // ─────────────────────────── Mutaciones ──────────────────────────

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{# Estructura de las pantallas administrativas: barra lateral, cabecera y
+   contenido. Reproduce el layout del grupo (admin) de Next.js. #}
+
+{% block cuerpo %}
+<div class="flex min-h-screen">
+
+  {# ── Barra lateral ──────────────────────────────────────────── #}
+  <aside id="lateral"
+         class="fixed inset-y-0 left-0 z-40 w-64 -translate-x-full border-r border-white/50 bg-white/80
+                backdrop-blur-xl transition-transform duration-300 ease-smooth
+                lg:translate-x-0">
+    <div class="flex h-16 items-center gap-3 border-b border-border px-5">
+      <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+        {% include "componentes/logo.html" %}
+      </div>
+      <div class="min-w-0">
+        <p class="truncate text-sm font-semibold text-foreground">Asistencia QR</p>
+        <p class="truncate text-xs text-muted-foreground">{{ institucion or 'Institución' }}</p>
+      </div>
+    </div>
+
+    <nav class="flex flex-col gap-0.5 overflow-y-auto p-3" style="height: calc(100vh - 4rem);">
+      {% for grupo in menu %}
+        {% if grupo.opciones %}
+          <p class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {{ grupo.titulo }}
+          </p>
+          {% for opcion in grupo.opciones %}
+            <a href="{{ opcion.ruta }}"
+               class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition
+                      {% if opcion.activa %}
+                        bg-primary text-primary-foreground shadow-glow
+                      {% else %}
+                        text-muted-foreground hover:bg-accent hover:text-accent-foreground
+                      {% endif %}">
+              <span class="shrink-0">{{ opcion.icono | safe }}</span>
+              <span class="truncate">{{ opcion.etiqueta }}</span>
+            </a>
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+    </nav>
+  </aside>
+
+  {# Capa que cierra el menú en pantallas pequeñas #}
+  <div id="velo" class="fixed inset-0 z-30 hidden bg-slate-900/30 backdrop-blur-sm lg:hidden"></div>
+
+  {# ── Contenido ──────────────────────────────────────────────── #}
+  <div class="flex min-w-0 flex-1 flex-col lg:pl-64">
+
+    <header class="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-white/50
+                   bg-white/70 px-4 backdrop-blur-xl sm:px-6">
+      <button type="button" id="abrir-menu"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-lg text-foreground
+                     transition hover:bg-accent lg:hidden"
+              aria-label="Abrir menú">
+        <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+
+      <h1 class="min-w-0 flex-1 truncate text-base font-semibold text-foreground">
+        {% block encabezado %}{{ titulo_pagina }}{% endblock %}
+      </h1>
+
+      {% if permisos.marcar %}
+      <a href="/marcar"
+         class="hidden h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm
+                font-medium text-foreground transition hover:bg-muted sm:inline-flex">
+        <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+        Marcar asistencia
+      </a>
+      {% endif %}
+
+      <div class="relative">
+        <button type="button" id="abrir-cuenta"
+                class="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm
+                       font-semibold text-primary transition hover:bg-primary/20"
+                aria-label="Menú de la cuenta">
+          {{ usuario.iniciales }}
+        </button>
+        <div id="menu-cuenta"
+             class="absolute right-0 mt-2 hidden w-60 rounded-xl border border-border bg-card p-1.5 shadow-elevated">
+          <div class="border-b border-border px-3 py-2">
+            <p class="truncate text-sm font-medium text-foreground">{{ usuario.nombre }}</p>
+            <p class="truncate text-xs text-muted-foreground">{{ usuario.correo }}</p>
+            <p class="mt-1 inline-flex rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-accent-foreground">
+              {{ usuario.rol }}
+            </p>
+          </div>
+          <button type="button" id="salir"
+                  class="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm
+                         text-destructive transition hover:bg-destructive/10">
+            <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+              <path d="M15 12H4m0 0l3.5-3.5M4 12l3.5 3.5M13 4h5a2 2 0 012 2v12a2 2 0 01-2 2h-5"
+                    stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1 p-4 sm:p-6">
+      {% block contenido %}{% endblock %}
+    </main>
+  </div>
+</div>
+{% endblock %}
+
+{% block guiones %}
+<script>
+  // Menú lateral en pantallas pequeñas
+  const lateral = document.getElementById('lateral');
+  const velo = document.getElementById('velo');
+
+  const alternarMenu = (abrir) => {
+    lateral.classList.toggle('-translate-x-full', !abrir);
+    velo.classList.toggle('hidden', !abrir);
+  };
+
+  document.getElementById('abrir-menu').addEventListener('click', () => alternarMenu(true));
+  velo.addEventListener('click', () => alternarMenu(false));
+
+  // Menú de la cuenta
+  const menuCuenta = document.getElementById('menu-cuenta');
+  document.getElementById('abrir-cuenta').addEventListener('click', (e) => {
+    e.stopPropagation();
+    menuCuenta.classList.toggle('hidden');
+  });
+  document.addEventListener('click', () => menuCuenta.classList.add('hidden'));
+
+  document.getElementById('salir').addEventListener('click', async () => {
+    try { await Api.post('/auth/logout'); } catch (_) { /* la sesión se cierra igual */ }
+    location.href = '/login';
+  });
+</script>
+{% block guiones_pagina %}{% endblock %}
+{% endblock %}

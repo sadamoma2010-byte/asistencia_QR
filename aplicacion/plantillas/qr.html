@@ -1,0 +1,183 @@
+{% extends "panel.html" %}
+{% block titulo %}Código QR · Sistema de Asistencia Docente{% endblock %}
+
+{% block contenido %}
+<div class="mx-auto max-w-[1400px] space-y-5 animate-fade-in">
+
+  <div class="surface-card p-5">
+    <h2 class="text-2xl font-bold tracking-tight text-foreground">Código QR institucional</h2>
+    <p class="mt-1 text-sm text-muted-foreground">
+      Un único código QR para toda la institución. Los docentes lo escanean y
+      registran su entrada o salida.
+    </p>
+  </div>
+
+  <div class="grid gap-5 lg:grid-cols-2">
+
+    {# ── Vista previa ───────────────────────────────────────────── #}
+    <div class="surface-card p-6">
+      <h3 class="text-base font-semibold text-foreground">Vista previa</h3>
+
+      <div class="mt-5 flex flex-col items-center">
+        <div id="lienzo-qr"
+             class="flex aspect-square w-full max-w-xs items-center justify-center rounded-2xl
+                    border border-border bg-white p-5">
+          <p class="text-sm text-muted-foreground">Generando…</p>
+        </div>
+
+        <p class="mt-4 text-center text-base font-semibold text-foreground">
+          {{ qr.institutionName or 'Institución Educativa' }}
+        </p>
+        <p class="text-center text-xs text-muted-foreground">
+          Escanee para registrar su asistencia
+        </p>
+
+        <div class="mt-5 flex flex-wrap justify-center gap-2">
+          <button type="button" data-descargar="png"
+                  class="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3
+                         text-sm font-medium transition hover:bg-muted">PNG</button>
+          <button type="button" data-descargar="svg"
+                  class="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3
+                         text-sm font-medium transition hover:bg-muted">SVG</button>
+          <button type="button" data-copiar
+                  class="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3
+                         text-sm font-medium transition hover:bg-muted">Copiar URL</button>
+          <a href="/marcar" target="_blank" rel="noopener"
+             class="inline-flex h-9 items-center gap-2 rounded-lg bg-primary px-3 text-sm
+                    font-semibold text-primary-foreground transition hover:bg-primary-hover">Probar</a>
+        </div>
+      </div>
+    </div>
+
+    {# ── Configuración ──────────────────────────────────────────── #}
+    <div class="space-y-5">
+      <div class="surface-card p-6">
+        <h3 class="text-base font-semibold text-foreground">Configuración</h3>
+
+        <form id="formulario-qr" class="mt-4 space-y-4" novalidate>
+          <div class="space-y-1.5">
+            <label for="publicUrl" class="text-sm font-medium text-foreground">
+              URL pública del QR <span class="text-destructive">*</span>
+            </label>
+            <input id="publicUrl" name="publicUrl" type="url" required
+                   value="{{ qr.publicUrl }}"
+                   class="h-11 w-full rounded-lg border border-input bg-card px-3 text-sm
+                          transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30">
+            <p class="text-xs text-muted-foreground">
+              Debe apuntar a la ruta <code class="rounded bg-muted px-1">/marcar</code> del dominio
+              público del sistema.
+            </p>
+            <p class="hidden text-xs text-destructive" data-error="publicUrl"></p>
+          </div>
+
+          <div class="space-y-1.5">
+            <label for="institutionName" class="text-sm font-medium text-foreground">
+              Nombre institucional <span class="text-destructive">*</span>
+            </label>
+            <input id="institutionName" name="institutionName" type="text" required
+                   value="{{ qr.institutionName }}"
+                   class="h-11 w-full rounded-lg border border-input bg-card px-3 text-sm
+                          transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30">
+            <p class="text-xs text-muted-foreground">Se imprime debajo del código al descargarlo.</p>
+            <p class="hidden text-xs text-destructive" data-error="institutionName"></p>
+          </div>
+
+          <div class="flex flex-wrap justify-end gap-2 pt-1">
+            <button type="reset"
+                    class="inline-flex h-10 items-center rounded-lg border border-border bg-card px-4
+                           text-sm font-medium transition hover:bg-muted">Descartar cambios</button>
+            <button type="submit" data-enviar
+                    class="inline-flex h-10 items-center rounded-lg bg-primary px-4 text-sm font-semibold
+                           text-primary-foreground transition hover:bg-primary-hover disabled:opacity-70">
+              <span data-texto>Guardar configuración</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="surface-card p-6">
+        <h3 class="text-base font-semibold text-foreground">Cómo funciona</h3>
+        <ol class="mt-3 space-y-2.5 text-sm text-muted-foreground">
+          {% for paso in [
+            'Imprima el código y ubíquelo en el punto de acceso institucional.',
+            'El docente lo escanea desde su celular y accede con sus credenciales.',
+            'Selecciona «Registrar Entrada» o «Registrar Salida».',
+            'El sistema valida su horario, calcula la puntualidad y registra la auditoría.'
+          ] %}
+          <li class="flex gap-3">
+            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10
+                         text-[11px] font-semibold text-primary">{{ loop.index }}</span>
+            <span>{{ paso }}</span>
+          </li>
+          {% endfor %}
+        </ol>
+        <p class="mt-4 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
+          Recomendación: imprima el QR en tamaño mínimo de 8 × 8 cm para una lectura confiable.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block guiones_pagina %}
+<script>
+  const lienzo = document.getElementById('lienzo-qr');
+
+  /** El código lo genera el servidor con segno; aquí solo se muestra. */
+  function pintarQr() {
+    const url = document.getElementById('publicUrl').value.trim();
+    lienzo.innerHTML = url
+      ? `<img src="/qr/imagen.svg?url=${encodeURIComponent(url)}" alt="Código QR institucional"
+              class="h-full w-full object-contain">`
+      : '<p class="text-sm text-muted-foreground">Indique la dirección del QR</p>';
+  }
+
+  document.getElementById('publicUrl').addEventListener('input', pintarQr);
+  pintarQr();
+
+  document.querySelectorAll('[data-descargar]').forEach((boton) =>
+    boton.addEventListener('click', () => {
+      const formato = boton.dataset.descargar;
+      const url = document.getElementById('publicUrl').value.trim();
+      const enlace = document.createElement('a');
+      enlace.href = `/qr/imagen.${formato}?url=${encodeURIComponent(url)}&descargar=1`;
+      enlace.download = `qr-institucional.${formato}`;
+      enlace.click();
+    }),
+  );
+
+  document.querySelector('[data-copiar]').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(document.getElementById('publicUrl').value.trim());
+      Interfaz.aviso('Dirección copiada', 'exito');
+    } catch (_) {
+      Interfaz.aviso('El navegador no permitió copiar', 'aviso');
+    }
+  });
+
+  document.getElementById('formulario-qr').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const boton = evento.target.querySelector('[data-enviar]');
+    const texto = boton.querySelector('[data-texto]');
+
+    Interfaz.limpiarErrores(evento.target);
+    boton.disabled = true;
+    texto.textContent = 'Guardando…';
+
+    try {
+      await Api.patch('/settings/qr', {
+        publicUrl: evento.target.publicUrl.value.trim(),
+        institutionName: evento.target.institutionName.value.trim(),
+      });
+      Interfaz.aviso('Configuración guardada', 'exito');
+      setTimeout(() => location.reload(), 600);
+    } catch (error) {
+      Interfaz.mostrarErrores(evento.target, error);
+      Interfaz.aviso(error.mensaje, 'error');
+      boton.disabled = false;
+      texto.textContent = 'Guardar configuración';
+    }
+  });
+</script>
+{% endblock %}

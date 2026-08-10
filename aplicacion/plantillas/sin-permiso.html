@@ -1,0 +1,22 @@
+{% extends "panel.html" %}
+{% block titulo %}Sin acceso · Sistema de Asistencia Docente{% endblock %}
+{% block contenido %}
+<div class="mx-auto max-w-lg pt-16 text-center animate-fade-in">
+  <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10">
+    <svg viewBox="0 0 24 24" fill="none" class="h-7 w-7 text-destructive" aria-hidden="true">
+      <rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/>
+      <path d="M8 10V7a4 4 0 118 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <h2 class="mt-5 text-2xl font-bold text-foreground">No tiene acceso a esta sección</h2>
+  <p class="mt-2 text-sm text-muted-foreground">
+    Su rol no incluye el permiso necesario. Si cree que se trata de un error,
+    comuníquese con el administrador del sistema.
+  </p>
+  <a href="/dashboard"
+     class="mt-6 inline-flex h-10 items-center rounded-lg bg-primary px-5 text-sm font-semibold
+            text-primary-foreground transition hover:bg-primary-hover">
+    Volver al dashboard
+  </a>
+</div>
+{% endblock %}

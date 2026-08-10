@@ -1,0 +1,138 @@
+"""
+Menú de navegación.
+
+Cada opción se muestra solo si el usuario tiene el permiso que la respalda,
+igual que hacía la barra lateral del frontend en React.
+"""
+
+from __future__ import annotations
+
+from ..comun.seguridad import UsuarioAutenticado
+
+
+def _icono(trazado: str) -> str:
+    return (
+        '<svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">'
+        f'{trazado}</svg>'
+    )
+
+
+ICONOS = {
+    "panel": _icono(
+        '<rect x="3" y="3" width="7" height="9" rx="1.6" stroke="currentColor" stroke-width="1.6"/>'
+        '<rect x="14" y="3" width="7" height="5" rx="1.6" stroke="currentColor" stroke-width="1.6"/>'
+        '<rect x="14" y="12" width="7" height="9" rx="1.6" stroke="currentColor" stroke-width="1.6"/>'
+        '<rect x="3" y="16" width="7" height="5" rx="1.6" stroke="currentColor" stroke-width="1.6"/>'
+    ),
+    "docentes": _icono(
+        '<circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.6"/>'
+        '<path d="M3 20a6 6 0 0112 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+        '<path d="M16 11a3 3 0 100-6M17 20a5.5 5.5 0 00-1.5-3.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    ),
+    "asignaturas": _icono(
+        '<path d="M4 5.5A1.5 1.5 0 015.5 4H19v15H5.5A1.5 1.5 0 004 20.5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
+        '<path d="M8 8h7M8 11.5h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    ),
+    "jornadas": _icono(
+        '<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/>'
+        '<path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    ),
+    "horarios": _icono(
+        '<rect x="3.5" y="5" width="17" height="15" rx="2" stroke="currentColor" stroke-width="1.6"/>'
+        '<path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    ),
+    "asistencia": _icono(
+        '<rect x="4" y="3.5" width="16" height="17" rx="2" stroke="currentColor" stroke-width="1.6"/>'
+        '<path d="M8.5 11.5l2.2 2.2 4.3-4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
+    "qr": _icono(
+        '<rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/>'
+        '<rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/>'
+        '<rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/>'
+        '<path d="M14 14h3v3h-3zM19 19h2v2h-2z" stroke="currentColor" stroke-width="1.6"/>'
+    ),
+    "reportes": _icono(
+        '<path d="M5 19V9M12 19V5M19 19v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'
+    ),
+    "auditoria": _icono(
+        '<path d="M12 3l7 3v5.5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5V6l7-3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
+        '<path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
+    "usuarios": _icono(
+        '<circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.6"/>'
+        '<path d="M5 20a7 7 0 0114 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    ),
+    "roles": _icono(
+        '<path d="M12 3l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.2l5.9-.8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
+    ),
+    "permisos": _icono(
+        '<rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/>'
+        '<path d="M8 10V7a4 4 0 118 0v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    ),
+    "configuracion": _icono(
+        '<circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>'
+        '<path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6M18.4 18.4l-1.6-1.6M7.2 7.2L5.6 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    ),
+}
+
+
+# (ruta, etiqueta, icono, permiso que la habilita)
+ESTRUCTURA = (
+    (
+        "Operación",
+        (
+            ("/dashboard", "Dashboard", "panel", "dashboard.read"),
+            ("/asistencia", "Asistencia", "asistencia", "attendance.read"),
+            ("/reportes", "Reportes", "reportes", "reports.read"),
+            ("/qr", "Código QR", "qr", "settings.read"),
+        ),
+    ),
+    (
+        "Académico",
+        (
+            ("/docentes", "Docentes", "docentes", "teachers.read"),
+            ("/asignaturas", "Asignaturas", "asignaturas", "subjects.read"),
+            ("/jornadas", "Jornadas", "jornadas", "shifts.read"),
+            ("/horarios", "Horarios", "horarios", "schedules.read"),
+        ),
+    ),
+    (
+        "Administración",
+        (
+            ("/usuarios", "Usuarios", "usuarios", "users.read"),
+            ("/roles", "Roles", "roles", "roles.read"),
+            ("/permisos", "Permisos", "permisos", "permissions.read"),
+            ("/auditoria", "Auditoría", "auditoria", "audit.read"),
+            ("/configuracion", "Configuración", "configuracion", "settings.read"),
+        ),
+    ),
+)
+
+
+def construir(usuario: UsuarioAutenticado, ruta_actual: str) -> list[dict]:
+    """Menú filtrado por los permisos del usuario."""
+    menu = []
+    for titulo, opciones in ESTRUCTURA:
+        visibles = [
+            {
+                "ruta": ruta,
+                "etiqueta": etiqueta,
+                "icono": ICONOS[icono],
+                "activa": ruta_actual == ruta or ruta_actual.startswith(ruta + "/"),
+            }
+            for ruta, etiqueta, icono, permiso in opciones
+            if usuario.tiene(permiso)
+        ]
+        if visibles:
+            menu.append({"titulo": titulo, "opciones": visibles})
+    return menu
+
+
+def iniciales(nombre: str) -> str:
+    """Dos letras a partir del nombre, para el avatar de la cabecera."""
+    partes = [p for p in (nombre or "").split() if p]
+    if not partes:
+        return "?"
+    if len(partes) == 1:
+        return partes[0][:2].upper()
+    return (partes[0][0] + partes[-1][0]).upper()

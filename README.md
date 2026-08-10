@@ -10,13 +10,18 @@ genera reportes exportables a Excel y mantiene auditoría completa de todas las 
 
 | Capa | Tecnología |
 |---|---|
-| Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 3, Shadcn UI, React Hook Form, Zod, TanStack Query 5, Framer Motion, Lucide React |
-| Backend | NestJS 10, TypeScript, Passport JWT, Swagger, ExcelJS |
-| Base de datos | PostgreSQL 14+ |
-| ORM | Prisma 5 |
-| Auth | JWT + Refresh Token (rotación), bcrypt |
-| Autorización | RBAC (Roles + Permisos granulares) |
-| Infraestructura | Docker + Docker Compose |
+| Aplicación | **Python 3.12 + Flask 3**, un solo proceso para páginas y API |
+| Interfaz | **HTML + Jinja2 + CSS (Tailwind) + JavaScript**, sin dependencias de terceros |
+| Base de datos | PostgreSQL 16 |
+| ORM | SQLAlchemy 2 |
+| Validación | pydantic v2 |
+| Auth | JWT + token de refresco con rotación, bcrypt |
+| Autorización | RBAC (roles + permisos granulares) |
+| Informes | openpyxl (Excel), segno (códigos QR), Pillow (fotografías) |
+
+> La versión en TypeScript (NestJS + Next.js) se conserva en `backend/` y
+> `frontend/`. Sirve de referencia y es contra la que se contrastan las
+> respuestas de la versión Python. Ver [`MIGRACION-A-PYTHON.md`](MIGRACION-A-PYTHON.md).
 
 ---
 
@@ -24,21 +29,27 @@ genera reportes exportables a Excel y mantiene auditoría completa de todas las 
 
 ```
 ASISTENCIA_QR_2026_SENA/
-├── backend/            API REST NestJS + Prisma
-│   ├── prisma/         Schema, migraciones y seed
-│   └── src/
-│       ├── common/     Guards, decorators, filtros, interceptores, DTOs base
-│       ├── prisma/     PrismaService
-│       └── modules/    auth, users, roles, permissions, teachers,
-│                       shifts, schedules, attendance, reports, audit, settings
-├── frontend/           Next.js 15 App Router
-│   └── src/
-│       ├── app/        Rutas (login, dashboard, marcar)
-│       ├── components/ ui / shared / layout / dashboard / attendance / reports / forms
-│       ├── lib/        API client, utils, validaciones Zod
-│       └── hooks/      TanStack Query hooks
+├── servidor.py           arranque
+├── aplicacion/
+│   ├── config.py         configuración por variables de entorno
+│   ├── extensiones.py    base de datos y límite de peticiones
+│   ├── modelos/          13 modelos SQLAlchemy
+│   ├── comun/            respuestas, errores, seguridad, paginación,
+│   │                     tiempo, auditoría, Excel, subidas
+│   ├── modulos/          12 módulos: auth, usuarios, roles, permisos,
+│   │                     docentes, asignaturas, jornadas, horarios,
+│   │                     asistencia, reportes, auditoría, configuración
+│   ├── web/              rutas de las páginas y navegación
+│   ├── plantillas/       15 pantallas en Jinja2
+│   └── estaticos/        CSS compilado y JavaScript propio
+├── herramientas/         comprobaciones ejecutables
+├── database.sql          estructura completa de la base
+├── backend/ frontend/    versión anterior en TypeScript (referencia)
 └── docker-compose.yml
 ```
+
+Cada módulo conserva la separación que tenía en NestJS: `rutas.py` por
+controlador, `servicio.py` por servicio y `esquemas.py` por DTO.
 
 ---
 
@@ -46,16 +57,20 @@ ASISTENCIA_QR_2026_SENA/
 
 | | |
 |---|---|
-| Node.js | 20 o superior |
-| PostgreSQL | 14 o superior, en marcha |
+| Python | 3.12 o superior |
+| PostgreSQL | 16 o superior, en marcha |
+| Node.js | solo para recompilar el CSS (opcional) |
 
 ## Instalación
 
 ### 1. Dependencias
 
 ```bash
-npm --prefix backend install
-npm --prefix frontend install
+python -m venv .venv
+```
+
+```bash
+.venv\Scripts\pip install -r requirements.txt
 ```
 
 ### 2. Base de datos
@@ -85,24 +100,14 @@ Luego escriba la conexión en `backend/.env`:
 DATABASE_URL=postgresql://usuario:contrasena@localhost:5432/asistencia_qr?schema=public
 ```
 
-Y genere el cliente:
-
-```bash
-npm --prefix backend run prisma:generate
-```
+La aplicación lee esa misma conexión: no hay que configurarla dos veces.
 </details>
 
-### 3. Frontend
-
-```bash
-cp frontend/.env.example frontend/.env.local
-```
-
-### 4. Arranque
+### 3. Arranque
 
 Lo más sencillo es doble clic en **`INICIAR-APLICACION.bat`**. Comprueba que PostgreSQL
-esté encendido, levanta backend y frontend en sus propias ventanas, espera a que ambos
-respondan y abre el navegador.
+esté encendido y que el entorno de Python esté instalado, levanta la aplicación en su
+propia ventana, espera a que responda y abre el navegador.
 
 Lo mismo desde la terminal:
 
@@ -116,11 +121,24 @@ Para apagarlo:
 npm run stop
 ```
 
-O cada servidor por separado, si prefiere ver sus registros:
+O directamente, si prefiere ver los registros:
 
 ```bash
-npm --prefix backend run start:dev     # http://localhost:4000
-npm --prefix frontend run dev          # http://localhost:3000
+.venv\Scripts\python servidor.py
+```
+
+Para producción, con un servidor preparado para ello:
+
+```bash
+.venv\Scripts\python servidor.py --produccion
+```
+
+### Recompilar el CSS
+
+Solo hace falta si se tocan las plantillas y aparecen clases de Tailwind nuevas:
+
+```bash
+npm run estilos
 ```
 
 | Servicio | Dirección |
@@ -158,6 +176,23 @@ retira lo que creó.
 
 La estructura completa está documentada en [`BASE-DE-DATOS.md`](BASE-DE-DATOS.md), con el
 diagrama entidad-relación y la descripción de cada tabla.
+
+---
+
+## Comprobaciones
+
+Todas se ejecutan contra la base real y retiran lo que crean.
+
+| Comando | Qué verifica |
+|---|---|
+| `.venv\Scripts\python herramientas\verificar_modelos.py` | Que los 13 modelos casen con las tablas |
+| `.venv\Scripts\python herramientas\probar_auth.py` | Sesión, tokens, rotación y bloqueo por intentos |
+| `.venv\Scripts\python herramientas\probar_pantallas.py` | Que las 15 pantallas respondan con su contenido |
+| `.venv\Scripts\python herramientas\probar_reglas.py` | Las reglas de negocio RN001 a RN009 |
+| `.venv\Scripts\python herramientas\comparar_api.py` | Que cada respuesta sea igual a la del sistema anterior |
+
+La última necesita el backend TypeScript en marcha (`npm --prefix backend run start:dev`).
+Llama a las dos aplicaciones y contrasta sus respuestas campo por campo.
 
 ---
 

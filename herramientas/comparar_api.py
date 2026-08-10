@@ -20,6 +20,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -86,7 +87,33 @@ def entrar_original() -> str | None:
         return None
 
 
-def comparar(etiqueta: str, ruta: str, cliente, token_py: str, token_ts: str | None) -> None:
+def _ordenar_listas(valor: Any) -> Any:
+    """
+    Ordena las listas por su contenido, para comparar conjuntos.
+
+    Se usa donde el sistema original no define ningún orden: relaciones sin
+    `orderBy` y listados cuya clave de orden tiene empates. Ahí dos ejecuciones
+    del propio original pueden devolver órdenes distintos, así que exigir el
+    mismo orden sería exigir algo que ni él garantiza. Lo que sí debe coincidir
+    es el conjunto de datos.
+    """
+    if isinstance(valor, dict):
+        return {k: _ordenar_listas(v) for k, v in valor.items()}
+    if isinstance(valor, list):
+        return sorted(
+            (_ordenar_listas(v) for v in valor), key=lambda x: json.dumps(x, sort_keys=True)
+        )
+    return valor
+
+
+def comparar(
+    etiqueta: str,
+    ruta: str,
+    cliente,
+    token_py: str,
+    token_ts: str | None,
+    orden_indiferente: bool = False,
+) -> None:
     """Llama a las dos APIs y contrasta el resultado."""
     global diferencias, comprobadas
     comprobadas += 1
@@ -102,8 +129,13 @@ def comparar(etiqueta: str, ruta: str, cliente, token_py: str, token_ts: str | N
         return
 
     a, b = normalizar(cuerpo_ts), normalizar(cuerpo_py)
+
     if a == b:
         print(f"    {etiqueta:<40}idéntico  (HTTP {estado_py})")
+        return
+
+    if orden_indiferente and _ordenar_listas(a) == _ordenar_listas(b):
+        print(f"    {etiqueta:<40}mismos datos, orden de empates distinto")
         return
 
     diferencias += 1
@@ -113,7 +145,8 @@ def comparar(etiqueta: str, ruta: str, cliente, token_py: str, token_ts: str | N
 
 def _detallar(a: Any, b: Any, camino: str = "", profundidad: int = 0) -> None:
     """Muestra en qué punto concreto difieren, sin volcar el JSON entero."""
-    if profundidad > 4:
+    if profundidad > 8:
+        print(f"      {camino[:-1]}: difiere por debajo del nivel mostrado")
         return
     if isinstance(a, dict) and isinstance(b, dict):
         for clave in sorted(set(a) | set(b)):
@@ -126,10 +159,13 @@ def _detallar(a: Any, b: Any, camino: str = "", profundidad: int = 0) -> None:
     elif isinstance(a, list) and isinstance(b, list):
         if len(a) != len(b):
             print(f"      {camino[:-1]}: {len(a)} elementos vs {len(b)}")
-        elif a and b:
-            _detallar(a[0], b[0], f"{camino}0.", profundidad + 1)
+            return
+        # Solo se detallan los índices que realmente difieren
+        for indice, (x, y) in enumerate(zip(a, b)):
+            if x != y:
+                _detallar(x, y, f"{camino}{indice}.", profundidad + 1)
     elif a != b:
-        print(f"      {camino[:-1]}: {str(a)[:50]!r} vs {str(b)[:50]!r}")
+        print(f"      {camino[:-1]}: {str(a)[:60]!r} vs {str(b)[:60]!r}")
 
 
 def main() -> int:
@@ -156,32 +192,73 @@ def main() -> int:
 
     print(f"  Ambas sesiones abiertas como {CORREO}\n")
 
+    # El tercer valor marca las rutas donde el original no define el orden:
+    # relaciones sin `orderBy` o claves de orden con empates.
     rutas = [
-        ("Perfil", "/auth/me"),
-        ("Jornadas: listado", "/shifts?page=1&limit=10"),
-        ("Jornadas: catálogo", "/shifts/options"),
-        ("Jornadas: búsqueda", "/shifts?search=ma"),
-        ("Jornadas: solo activas", "/shifts?status=ACTIVE"),
-        ("Jornadas: orden por nombre", "/shifts?sortBy=name&sortOrder=asc"),
-        ("Asignaturas: listado", "/subjects?page=1&limit=10"),
-        ("Asignaturas: catálogo", "/subjects/options"),
-        ("Asignaturas: búsqueda", "/subjects?search=cien"),
-        ("Asignaturas: paginación", "/subjects?page=2&limit=3"),
-        ("Asignaturas: código sugerido", "/subjects/next-code"),
+        ("Perfil", "/auth/me", False),
+        ("Usuarios: listado", "/users?page=1&limit=10", False),
+        ("Usuarios: búsqueda", "/users?search=a", False),
+        ("Usuarios: orden por correo", "/users?sortBy=email&sortOrder=asc", False),
+        ("Roles: listado", "/roles?page=1&limit=10", False),
+        ("Roles: catálogo", "/roles/options", False),
+        ("Permisos: listado", "/permissions?page=1&limit=20", False),
+        ("Permisos: agrupados", "/permissions/grouped", False),
+        ("Permisos: módulos", "/permissions/modules", False),
+        ("Docentes: listado", "/teachers?page=1&limit=10", True),
+        ("Docentes: catálogo", "/teachers/options", False),
+        ("Docentes: búsqueda", "/teachers?search=a", True),
+        ("Docentes: código sugerido", "/teachers/next-code", False),
+        ("Jornadas: listado", "/shifts?page=1&limit=10", False),
+        ("Jornadas: catálogo", "/shifts/options", False),
+        ("Jornadas: búsqueda", "/shifts?search=ma", False),
+        ("Jornadas: solo activas", "/shifts?status=ACTIVE", False),
+        ("Jornadas: orden por nombre", "/shifts?sortBy=name&sortOrder=asc", False),
+        ("Asignaturas: listado", "/subjects?page=1&limit=10", False),
+        ("Asignaturas: catálogo", "/subjects/options", False),
+        ("Asignaturas: búsqueda", "/subjects?search=cien", False),
+        ("Asignaturas: paginación", "/subjects?page=2&limit=3", False),
+        ("Asignaturas: código sugerido", "/subjects/next-code", False),
+        ("Horarios: listado", "/schedules?page=1&limit=10", True),
+        ("Horarios: por hora de entrada", "/schedules?sortBy=checkInTime&sortOrder=asc", True),
+        ("Asistencia: listado", "/attendance?page=1&limit=10", False),
+        ("Asistencia: por tipo", "/attendance?type=CHECK_IN", False),
+        ("Asistencia: por estado", "/attendance?status=ON_TIME", False),
+        ("Asistencia: por fechas", "/attendance?dateFrom=2026-08-01&dateTo=2026-08-31", False),
+        ("Auditoría: listado", "/audit?page=1&limit=10", False),
+        ("Auditoría: módulos", "/audit/modules", False),
+        ("Auditoría: por acción", "/audit?action=LOGIN&limit=5", False),
+        ("Auditoría: búsqueda", "/audit?search=" + quote("sesión") + "&limit=5", False),
+        ("Configuración: listado", "/settings", False),
+        ("Configuración: públicos", "/settings/public", False),
+        ("Configuración: QR", "/settings/qr", False),
+        ("Reportes: panel", "/reports/dashboard", False),
+        ("Reportes: por docente", "/reports/attendance?page=1&limit=10", False),
     ]
 
-    for etiqueta, ruta in rutas:
-        comparar(etiqueta, ruta, cliente, token_py, token_ts)
+    for etiqueta, ruta, indiferente in rutas:
+        comparar(etiqueta, ruta, cliente, token_py, token_ts, indiferente)
 
-    # El detalle exige un identificador real: se toma del listado
-    listado = cliente.get(
-        "/api/v1/subjects?page=1&limit=1", headers={"Authorization": f"Bearer {token_py}"}
-    ).get_json()
-    elementos = ((listado.get("data") or {}).get("items")) or []
-    if elementos:
-        comparar(
-            "Asignaturas: detalle", f"/subjects/{elementos[0]['id']}", cliente, token_py, token_ts
-        )
+    # Los detalles exigen identificadores reales: se toman de los listados
+    for etiqueta, coleccion, indiferente in (
+        ("Asignaturas: detalle", "subjects", True),
+        ("Docentes: detalle", "teachers", True),
+        ("Roles: detalle", "roles", True),
+        ("Horarios: detalle", "schedules", False),
+    ):
+        listado = cliente.get(
+            f"/api/v1/{coleccion}?page=1&limit=1",
+            headers={"Authorization": f"Bearer {token_py}"},
+        ).get_json()
+        elementos = ((listado.get("data") or {}).get("items")) or []
+        if elementos:
+            comparar(
+                etiqueta,
+                f"/{coleccion}/{elementos[0]['id']}",
+                cliente,
+                token_py,
+                token_ts,
+                indiferente,
+            )
 
     print("\n  " + "─" * 62)
     if diferencias:

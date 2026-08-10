@@ -112,20 +112,24 @@ def iso(momento: datetime | date | None) -> str | None:
     """
     Serializa una fecha al formato que producía JavaScript.
 
-    `toISOString()` siempre devuelve UTC terminado en `Z` con milisegundos;
-    la interfaz ya interpreta ese formato, así que se reproduce igual.
+    `toISOString()` siempre devuelve UTC terminado en `Z` con milisegundos.
+    Una columna DATE llegaba a JavaScript como fecha anclada a medianoche UTC,
+    de modo que salía igual: `2026-08-08T00:00:00.000Z`. Se reproduce tal cual
+    para que la interfaz no note el cambio.
     """
     if momento is None:
         return None
     if isinstance(momento, datetime):
         if momento.tzinfo is None:
             momento = momento.replace(tzinfo=timezone.utc)
-        return (
-            momento.astimezone(timezone.utc)
-            .isoformat(timespec="milliseconds")
-            .replace("+00:00", "Z")
-        )
-    return momento.isoformat()
+    else:
+        momento = datetime(momento.year, momento.month, momento.day, tzinfo=timezone.utc)
+
+    return (
+        momento.astimezone(timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
 
 
 PATRON_HORA = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")

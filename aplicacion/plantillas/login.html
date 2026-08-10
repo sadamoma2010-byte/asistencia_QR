@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block titulo %}Acceso · Sistema de Asistencia Docente{% endblock %}
+
+{% block cuerpo %}
+<main class="flex min-h-screen flex-col items-center justify-center px-4 py-10">
+
+  <div class="w-full max-w-md animate-slide-up">
+
+    {# ── Identidad ──────────────────────────────────────────── #}
+    <div class="mb-8 text-center">
+      <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-glow">
+        {% include "componentes/logo.html" %}
+      </div>
+      <h1 class="mt-5 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+        Sistema de Asistencia Docente
+      </h1>
+      <p class="mt-2 text-sm text-muted-foreground">
+        Control y seguimiento de asistencia mediante QR
+      </p>
+    </div>
+
+    {# ── Formulario ─────────────────────────────────────────── #}
+    <div class="glass-card rounded-2xl p-6 sm:p-8">
+      <form id="formulario-acceso" novalidate>
+
+        <div class="space-y-1.5">
+          <label for="email" class="text-sm font-medium text-foreground">
+            Correo institucional <span class="text-destructive">*</span>
+          </label>
+          <div class="relative">
+            <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
+              {% include "componentes/icono-correo.html" %}
+            </span>
+            <input id="email" name="email" type="email" autocomplete="username" required
+                   placeholder="usuario@institucion.edu.co"
+                   class="h-11 w-full rounded-lg border border-input bg-card pl-10 pr-3 text-sm text-foreground
+                          transition placeholder:text-muted-foreground/70
+                          focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30">
+          </div>
+          <p class="hidden text-xs text-destructive" data-error="email"></p>
+        </div>
+
+        <div class="mt-4 space-y-1.5">
+          <label for="password" class="text-sm font-medium text-foreground">
+            Contraseña <span class="text-destructive">*</span>
+          </label>
+          <div class="relative">
+            <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
+              {% include "componentes/icono-candado.html" %}
+            </span>
+            <input id="password" name="password" type="password" autocomplete="current-password" required
+                   placeholder="••••••••"
+                   class="h-11 w-full rounded-lg border border-input bg-card pl-10 pr-11 text-sm text-foreground
+                          transition placeholder:text-muted-foreground/70
+                          focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30">
+            <button type="button" data-ver-clave
+                    class="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground transition hover:text-foreground"
+                    aria-label="Mostrar contraseña">
+              {% include "componentes/icono-ojo.html" %}
+            </button>
+          </div>
+          <p class="hidden text-xs text-destructive" data-error="password"></p>
+        </div>
+
+        <button type="submit" data-enviar
+                class="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary
+                       text-sm font-semibold text-primary-foreground shadow-glow transition
+                       hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
+                       disabled:cursor-not-allowed disabled:opacity-70">
+          <span data-texto>Ingresar</span>
+        </button>
+      </form>
+
+      <p class="mt-5 flex items-start gap-2 text-center text-xs leading-relaxed text-muted-foreground">
+        {% include "componentes/icono-escudo.html" %}
+        <span class="text-left">
+          Acceso protegido con cifrado y control de intentos. Todas las acciones
+          quedan registradas en la auditoría del sistema.
+        </span>
+      </p>
+    </div>
+
+    <p class="mt-6 text-center text-xs text-muted-foreground">
+      ¿Problemas para ingresar? Comuníquese con el administrador del sistema.
+    </p>
+  </div>
+</main>
+{% endblock %}
+
+{% block guiones %}
+<script>
+  // Tras entrar, se vuelve a la página que se pedía originalmente
+  const destino = new URLSearchParams(location.search).get('redirect') || '/dashboard';
+
+  document.getElementById('formulario-acceso').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const boton = evento.target.querySelector('[data-enviar]');
+    const texto = boton.querySelector('[data-texto]');
+
+    Interfaz.limpiarErrores(evento.target);
+    boton.disabled = true;
+    texto.textContent = 'Verificando…';
+
+    try {
+      const datos = await Api.post('/auth/login', {
+        email: evento.target.email.value.trim(),
+        password: evento.target.password.value,
+      });
+      Interfaz.aviso(`Bienvenido, ${datos.user.firstName}`, 'exito');
+      location.href = destino;
+    } catch (error) {
+      Interfaz.mostrarErrores(evento.target, error);
+      Interfaz.aviso(error.mensaje, 'error');
+      boton.disabled = false;
+      texto.textContent = 'Ingresar';
+    }
+  });
+</script>
+{% endblock %}

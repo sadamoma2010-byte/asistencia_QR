@@ -1,23 +1,24 @@
 <#
 .SYNOPSIS
-    Enciende la aplicación: backend, frontend y navegador.
+    Enciende la aplicación y abre el navegador.
 
 .DESCRIPTION
     Deja el sistema listo para usar en un solo paso:
 
       1. Comprueba que la conexión a PostgreSQL esté configurada
       2. Comprueba que el motor PostgreSQL esté escuchando
-      3. Enciende el backend y el frontend, cada uno en su ventana
-      4. Espera a que ambos respondan de verdad
-      5. Abre el navegador en la pantalla de acceso
+      3. Comprueba que el entorno de Python esté instalado
+      4. Enciende la aplicación en su propia ventana
+      5. Espera a que responda de verdad
+      6. Abre el navegador en la pantalla de acceso
 
     Si algo falta, lo dice antes de encender nada y explica cómo resolverlo.
 
-    Las ventanas que abre son independientes: la aplicación sigue en marcha
-    aunque se cierre esta. Para apagarla, ciérrelas o use .\scripts\detener.ps1
+    La ventana que abre es independiente: la aplicación sigue en marcha
+    aunque se cierre esta. Para apagarla, ciérrela o use .\scripts\detener.ps1
 
 .PARAMETER SinNavegador
-    Enciende los servidores pero no abre el navegador.
+    Enciende el servidor pero no abre el navegador.
 
 .EXAMPLE
     .\scripts\iniciar.ps1
@@ -42,7 +43,7 @@ Write-Host '  Iniciar la aplicacion' -ForegroundColor White
 Write-Host '  ---------------------' -ForegroundColor DarkGray
 Write-Host ''
 
-# ── Un puerto ocupado significa que ese servidor ya está en marcha ──
+# ── Un puerto ocupado significa que ya está en marcha ───────────────
 function PuertoActivo([int]$puerto) {
   $cliente = New-Object Net.Sockets.TcpClient
   try {
@@ -63,13 +64,7 @@ if (-not (Test-Path $entorno)) {
 }
 
 $conexion = (Get-Content $entorno | Where-Object { $_ -match '^DATABASE_URL=' }) -replace '^DATABASE_URL=', ''
-if (-not $conexion) {
-  Alto 'backend\.env no define DATABASE_URL.'
-  Nota 'Ejecute CONFIGURAR-BASE-DE-DATOS.bat para regenerarlo.'
-  Write-Host ''
-  exit 1
-}
-if ($conexion -notmatch '^postgresql://') {
+if (-not $conexion -or $conexion -notmatch '^postgresql://') {
   Alto 'DATABASE_URL no apunta a PostgreSQL.'
   Nota 'Ejecute CONFIGURAR-BASE-DE-DATOS.bat para rehacer la conexion.'
   Write-Host ''
@@ -94,30 +89,31 @@ if (-not (PuertoActivo $puertoBase)) {
 }
 Bien "motor PostgreSQL escuchando en el puerto $puertoBase"
 
-# ── Encender lo que no esté ya en marcha ────────────────────────────
-$apiViva = PuertoActivo 4000
-$webViva = PuertoActivo 3000
+# ── Comprobar el entorno de Python ──────────────────────────────────
+$python = Join-Path $raiz '.venv\Scripts\python.exe'
+if (-not (Test-Path $python)) {
+  Alto 'Falta el entorno de Python.'
+  Nota 'Creelo con:'
+  Nota ''
+  Nota '   python -m venv .venv'
+  Nota '   .venv\Scripts\pip install -r requirements.txt'
+  Write-Host ''
+  exit 1
+}
+Bien 'entorno de Python instalado'
 
-if ($apiViva) {
-  Nota 'el backend ya estaba en marcha'
+# ── Encender ────────────────────────────────────────────────────────
+if (PuertoActivo 4000) {
+  Nota 'la aplicacion ya estaba en marcha'
 } else {
-  Paso 'Encendiendo el backend'
+  Paso 'Encendiendo la aplicacion'
   Start-Process -FilePath 'cmd.exe' `
-    -ArgumentList '/k', 'title Backend - Asistencia QR && npm --prefix backend run start:dev' `
+    -ArgumentList '/k', 'title Asistencia QR - Python && .venv\Scripts\python.exe servidor.py' `
     -WorkingDirectory $raiz | Out-Null
 }
 
-if ($webViva) {
-  Nota 'el frontend ya estaba en marcha'
-} else {
-  Paso 'Encendiendo el frontend'
-  Start-Process -FilePath 'cmd.exe' `
-    -ArgumentList '/k', 'title Frontend - Asistencia QR && npm --prefix frontend run dev' `
-    -WorkingDirectory $raiz | Out-Null
-}
-
-# ── Esperar a que respondan de verdad, no solo a que abra el puerto ──
-Paso 'Esperando a que respondan'
+# ── Esperar a que responda de verdad ────────────────────────────────
+Paso 'Esperando a que responda'
 
 function Responde($url) {
   try {
@@ -126,42 +122,35 @@ function Responde($url) {
   } catch { return $false }
 }
 
-$limite = (Get-Date).AddSeconds(120)
-$apiOk = $false
-$webOk = $false
-
+$limite = (Get-Date).AddSeconds(90)
+$listo = $false
 while ((Get-Date) -lt $limite) {
-  if (-not $apiOk) { $apiOk = Responde 'http://localhost:4000/api/v1/health' }
-  if (-not $webOk) { $webOk = Responde 'http://localhost:3000/login' }
-  if ($apiOk -and $webOk) { break }
+  if (Responde 'http://localhost:4000/login') { $listo = $true; break }
   Start-Sleep -Seconds 2
 }
 
 Write-Host ''
-if ($apiOk) { Bien 'backend  http://localhost:4000' } else { Alto 'el backend no respondio a tiempo' }
-if ($webOk) { Bien 'frontend http://localhost:3000' } else { Alto 'el frontend no respondio a tiempo' }
-
-if (-not ($apiOk -and $webOk)) {
+if (-not $listo) {
+  Alto 'la aplicacion no respondio a tiempo'
   Write-Host ''
-  Nota 'Revise las ventanas que se abrieron: ahi aparece el motivo.'
-  Nota 'La primera vez puede tardar mas de lo normal al compilar.'
+  Nota 'Revise la ventana que se abrio: ahi aparece el motivo.'
   Write-Host ''
   exit 1
 }
+Bien 'aplicacion  http://localhost:4000'
 
-# ── Abrir el navegador ──────────────────────────────────────────────
 if (-not $SinNavegador) {
-  Start-Process 'http://localhost:3000/login' | Out-Null
+  Start-Process 'http://localhost:4000/login' | Out-Null
 }
 
 Write-Host ''
 Write-Host '  La aplicacion esta lista' -ForegroundColor Green
 Write-Host ''
-Write-Host '     http://localhost:3000' -ForegroundColor White
+Write-Host '     http://localhost:4000' -ForegroundColor White
 Write-Host ''
 Nota 'Usuario     admin@datly.local'
 Nota 'Contrasena  Admin123*'
 Write-Host ''
-Nota 'Se abrieron dos ventanas negras: son los servidores.'
-Nota 'Dejelas abiertas mientras use la aplicacion.'
+Nota 'Se abrio una ventana negra: es el servidor.'
+Nota 'Dejela abierta mientras use la aplicacion.'
 Write-Host ''

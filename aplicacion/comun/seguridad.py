@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from functools import wraps
@@ -85,6 +86,11 @@ def _firmar(datos: dict, secreto: str, segundos: int) -> str:
         **datos,
         "iat": int(ahora.timestamp()),
         "exp": int((ahora + timedelta(seconds=segundos)).timestamp()),
+        # Identificador único del token. Sin él, dos tokens emitidos para el
+        # mismo usuario dentro del mismo segundo salen idénticos —mismo
+        # contenido, mismas marcas de tiempo— y la rotación no podría
+        # distinguir el revocado del recién emitido.
+        "jti": secrets.token_urlsafe(12),
     }
     return jwt.encode(carga, secreto, algorithm="HS256")
 

@@ -106,8 +106,17 @@ def _configurar_registro(app: Flask) -> None:
 # que se van portando; cada entrada es el paquete bajo `aplicacion.modulos`.
 MODULOS_API = (
     "auth",
-    "jornadas",
+    "usuarios",
+    "roles",
+    "permisos",
+    "docentes",
     "asignaturas",
+    "jornadas",
+    "horarios",
+    "asistencia",
+    "reportes",
+    "auditoria",
+    "configuracion",
 )
 
 
@@ -120,5 +129,10 @@ def _registrar_modulos(app: Flask) -> None:
     for nombre in MODULOS_API:
         modulo = import_module(f".modulos.{nombre}.rutas", package=__name__)
         app.register_blueprint(modulo.bp, url_prefix=prefijo)
+
+    # Las páginas HTML cuelgan de la raíz, sin prefijo
+    from .web.rutas import bp as bp_web
+
+    app.register_blueprint(bp_web)
 
     app.logger.info("Módulos registrados: %s", ", ".join(MODULOS_API))

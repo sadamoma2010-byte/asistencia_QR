@@ -93,17 +93,17 @@ def main() -> int:
     comprobar("Campo no declarado rechazado", f"HTTP {r.status_code}", "HTTP 400")
 
     # ── Perfil con token ─────────────────────────────────────────────
-    r = cliente.get(f"{base}/auth/profile", headers=cabecera)
+    r = cliente.get(f"{base}/auth/me", headers=cabecera)
     comprobar("Perfil con token válido", f"HTTP {r.status_code}", "HTTP 200")
     comprobar("Correo del perfil", (r.get_json().get("data") or {}).get("email"), CORREO)
 
     # Cliente aparte: el primero conserva la cookie de sesión del navegador,
     # que es una vía de acceso legítima para las páginas HTML.
     anonimo = app.test_client()
-    r = anonimo.get(f"{base}/auth/profile")
+    r = anonimo.get(f"{base}/auth/me")
     comprobar("Perfil sin sesión rechazado", f"HTTP {r.status_code}", "HTTP 401")
 
-    r = anonimo.get(f"{base}/auth/profile", headers={"Authorization": "Bearer no-es-un-token"})
+    r = anonimo.get(f"{base}/auth/me", headers={"Authorization": "Bearer no-es-un-token"})
     comprobar("Token inventado rechazado", f"HTTP {r.status_code}", "HTTP 401")
 
     # ── Refresco con rotación ────────────────────────────────────────

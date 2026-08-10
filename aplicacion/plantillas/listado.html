@@ -1,0 +1,194 @@
+{% extends "panel.html" %}
+{% block titulo %}{{ vista.titulo }} · Sistema de Asistencia Docente{% endblock %}
+
+{% block contenido %}
+<div class="mx-auto max-w-[1600px] space-y-5 animate-fade-in">
+
+  {# ── Encabezado ─────────────────────────────────────────────── #}
+  <div class="surface-card flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+    <div class="min-w-0">
+      <h2 class="text-2xl font-bold tracking-tight text-foreground">{{ vista.titulo }}</h2>
+      <p class="mt-1 text-sm text-muted-foreground">{{ vista.descripcion }}</p>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      {% if vista.puede.exportar %}
+        {% for ruta, etiqueta in vista.exportaciones or [(none, 'Exportar')] %}
+          <button type="button" data-exportar="{{ ruta or '' }}"
+                  class="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4
+                         text-sm font-medium text-foreground transition hover:bg-muted">
+            <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+              <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke="currentColor" stroke-width="1.7"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            {{ etiqueta }}
+          </button>
+        {% endfor %}
+      {% endif %}
+
+      {% if vista.puede.crear %}
+        <button type="button" data-nuevo
+                class="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm
+                       font-semibold text-primary-foreground shadow-glow transition hover:bg-primary-hover">
+          <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+          </svg>
+          Nuevo {{ vista.singular }}
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Filtros ────────────────────────────────────────────────── #}
+  <form id="filtros" class="surface-card flex flex-wrap items-center gap-3 p-4">
+    {% for filtro in vista.filtros %}
+      {% if filtro.tipo == 'busqueda' %}
+        <div class="relative min-w-[220px] flex-1">
+          <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
+            <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M16 16l4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <input type="search" name="{{ filtro.campo }}" placeholder="{{ filtro.texto }}"
+                 value="{{ request.args.get(filtro.campo, '') }}"
+                 class="h-10 w-full rounded-lg border border-input bg-card pl-10 pr-3 text-sm
+                        transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30">
+        </div>
+
+      {% elif filtro.tipo == 'estado' %}
+        <select name="status"
+                class="h-10 min-w-[160px] rounded-lg border border-input bg-card px-3 text-sm
+                       transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30">
+          <option value="">Todos los estados</option>
+          <option value="ACTIVE" {{ 'selected' if request.args.get('status') == 'ACTIVE' }}>Activos</option>
+          <option value="INACTIVE" {{ 'selected' if request.args.get('status') == 'INACTIVE' }}>Inactivos</option>
+        </select>
+
+      {% elif filtro.tipo == 'opciones' %}
+        <select name="{{ filtro.campo }}"
+                class="h-10 min-w-[170px] rounded-lg border border-input bg-card px-3 text-sm
+                       transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30">
+          <option value="">{{ filtro.texto }}</option>
+          {% for valor, etiqueta in filtro.opciones %}
+            <option value="{{ valor }}" {{ 'selected' if request.args.get(filtro.campo) == valor }}>{{ etiqueta }}</option>
+          {% endfor %}
+        </select>
+
+      {% elif filtro.tipo == 'catalogo' %}
+        <select name="{{ filtro.campo }}" data-catalogo="{{ filtro.recurso }}"
+                data-elegido="{{ request.args.get(filtro.campo, '') }}"
+                class="h-10 min-w-[190px] rounded-lg border border-input bg-card px-3 text-sm
+                       transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30">
+          <option value="">{{ filtro.texto }}</option>
+        </select>
+
+      {% elif filtro.tipo == 'fecha' %}
+        <input type="date" name="{{ filtro.campo }}" aria-label="{{ filtro.texto }}"
+               value="{{ request.args.get(filtro.campo, '') }}"
+               class="h-10 rounded-lg border border-input bg-card px-3 text-sm
+                      transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30">
+      {% endif %}
+    {% endfor %}
+
+    <button type="button" data-limpiar
+            class="h-10 rounded-lg px-3 text-sm font-medium text-muted-foreground transition hover:text-foreground">
+      Limpiar filtros
+    </button>
+  </form>
+
+  {# ── Barra de selección ─────────────────────────────────────── #}
+  {% if vista.puede.borrado_multiple %}
+  <div id="barra-seleccion"
+       class="hidden items-center justify-between gap-3 rounded-xl border border-primary/30
+              bg-accent px-4 py-3 animate-slide-up">
+    <p class="text-sm font-medium text-accent-foreground">
+      <span data-cuenta>0</span> seleccionada(s)
+    </p>
+    <button type="button" id="borrar-seleccion"
+            class="inline-flex h-9 items-center gap-2 rounded-lg bg-destructive px-3 text-sm
+                   font-semibold text-destructive-foreground transition hover:opacity-90">
+      <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+        <path d="M5 7h14M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"
+              stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Eliminar seleccionadas
+    </button>
+  </div>
+  {% endif %}
+
+  {# ── Tabla ──────────────────────────────────────────────────── #}
+  <div class="surface-card overflow-hidden">
+    <div class="table-scroll hidden md:block">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-border bg-muted/40 text-left">
+            {% if vista.puede.borrado_multiple %}
+            <th class="w-12 px-4 py-3">
+              <input type="checkbox" data-seleccion="todas" aria-label="Seleccionar todas"
+                     class="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring/40">
+            </th>
+            {% endif %}
+            {% for columna in vista.columnas %}
+            <th class="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {% if columna.ordenable and not vista.sin_ordenar %}
+                <button type="button" data-ordenar="{{ columna.ordenable }}"
+                        class="inline-flex items-center gap-1 transition hover:text-foreground">
+                  {{ columna.etiqueta }}
+                  <span class="text-[10px] opacity-60" data-flecha="{{ columna.ordenable }}">↕</span>
+                </button>
+              {% else %}
+                {{ columna.etiqueta }}
+              {% endif %}
+            </th>
+            {% endfor %}
+            {% if vista.puede.editar or vista.puede.eliminar %}
+            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Acciones
+            </th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody id="cuerpo-tabla" class="divide-y divide-border"></tbody>
+      </table>
+    </div>
+
+    {# Tarjetas en pantallas pequeñas: la tabla no cabe sin desbordar #}
+    <div id="tarjetas" class="divide-y divide-border md:hidden"></div>
+
+    <div id="vacio" class="hidden px-6 py-16 text-center">
+      <p class="text-sm font-medium text-foreground">Sin resultados</p>
+      <p class="mt-1 text-sm text-muted-foreground">
+        No hay registros para los filtros seleccionados.
+      </p>
+    </div>
+
+    <div id="cargando" class="px-6 py-16 text-center text-sm text-muted-foreground">
+      Cargando…
+    </div>
+  </div>
+
+  {# ── Paginación ─────────────────────────────────────────────── #}
+  <div id="paginacion" class="flex flex-col items-center justify-between gap-3 sm:flex-row">
+    <p class="text-sm text-muted-foreground" data-resumen></p>
+    <div class="flex items-center gap-2">
+      <button type="button" data-pagina="anterior"
+              class="inline-flex h-9 items-center rounded-lg border border-border bg-card px-3 text-sm
+                     font-medium transition hover:bg-muted disabled:opacity-40">
+        Anterior
+      </button>
+      <span class="text-sm text-muted-foreground" data-indicador></span>
+      <button type="button" data-pagina="siguiente"
+              class="inline-flex h-9 items-center rounded-lg border border-border bg-card px-3 text-sm
+                     font-medium transition hover:bg-muted disabled:opacity-40">
+        Siguiente
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block guiones_pagina %}
+<script id="definicion-vista" type="application/json">{{ vista | tojson }}</script>
+<script src="{{ url_for('static', filename='js/listado.js') }}"></script>
+{% endblock %}

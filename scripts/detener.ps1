@@ -23,8 +23,9 @@ Write-Host '  Detener la aplicacion' -ForegroundColor White
 Write-Host '  ---------------------' -ForegroundColor DarkGray
 Write-Host ''
 
-# Cada servidor se identifica por el puerto que ocupa
-foreach ($p in @(@{ n = 'frontend'; puerto = 3000 }, @{ n = 'backend'; puerto = 4000 })) {
+# Cada servidor se identifica por el puerto que ocupa. El 3000 solo lo usaba
+# el frontend en Next.js; se conserva para poder apagar una sesion antigua.
+foreach ($p in @(@{ n = 'frontend anterior'; puerto = 3000 }, @{ n = 'aplicacion'; puerto = 4000 })) {
   $conexiones = Get-NetTCPConnection -LocalPort $p.puerto -State Listen -ErrorAction SilentlyContinue
   if (-not $conexiones) {
     Nota ("el " + $p.n + " no estaba en marcha")

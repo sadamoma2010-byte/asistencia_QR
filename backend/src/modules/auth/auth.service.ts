@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { type User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import { AuditAction, RecordStatus } from '../../common/enums';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -140,7 +140,16 @@ export class AuthService {
     user: Pick<User, 'id' | 'email'> & { role: { name: string } },
     ctx: RequestContext,
   ): Promise<AuthTokens> {
-    const basePayload = { sub: user.id, email: user.email, role: user.role.name };
+    // `jti` identifica cada token. Sin él, dos tokens emitidos para el mismo
+    // usuario dentro del mismo segundo salen idénticos —mismo contenido y
+    // mismas marcas de tiempo— y la rotación no puede distinguir el revocado
+    // del recién emitido.
+    const basePayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role.name,
+      jti: randomBytes(9).toString('base64url'),
+    };
 
     const accessToken = await this.jwt.signAsync(
       { ...basePayload, type: 'access' } satisfies JwtPayload,

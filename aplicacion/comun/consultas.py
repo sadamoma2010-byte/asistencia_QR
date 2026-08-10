@@ -71,7 +71,18 @@ def aplicar_orden(
         campo = permitidos.get(paginacion.defecto_orden)
     if campo is None:
         return consulta
-    return consulta.order_by(asc(campo) if paginacion.orden == "asc" else desc(campo))
+
+    consulta = consulta.order_by(asc(campo) if paginacion.orden == "asc" else desc(campo))
+
+    # Desempate estable. El sistema original no lo tenía, y sin él dos filas
+    # con la misma clave de orden pueden intercambiarse entre una consulta y
+    # la siguiente: al paginar, eso hace que una fila se repita en dos páginas
+    # y otra no aparezca en ninguna.
+    entidad = consulta.column_descriptions[0]["entity"]
+    if entidad is not None and hasattr(entidad, "id"):
+        consulta = consulta.order_by(asc(entidad.id))
+
+    return consulta
 
 
 def aplicar_busqueda(
