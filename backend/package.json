@@ -19,6 +19,8 @@
     "db:reset": "prisma migrate reset --force",
     "db:generar-sqlite": "prisma generate --schema prisma/schema.sqlite.prisma",
     "db:migrar-datos": "ts-node --transpile-only prisma/migrar-datos.ts",
+    "db:verificar": "ts-node --transpile-only prisma/verificar-postgres.ts",
+    "db:pruebas": "ts-node --transpile-only prisma/pruebas-funcionales.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage"

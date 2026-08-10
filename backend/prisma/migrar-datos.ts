@@ -37,9 +37,15 @@ function ok(cantidad: number, omitidos = 0) {
   console.log(`${String(cantidad).padStart(5)} filas${extra}`);
 }
 
-/** Convierte el metadata guardado como texto en JSON aprovechable por JSONB. */
-function comoJson(texto: string | null): Prisma.InputJsonValue | typeof Prisma.JsonNull {
-  if (!texto) return Prisma.JsonNull;
+/**
+ * Convierte el metadata guardado como texto en JSON aprovechable por JSONB.
+ *
+ * Si no hay texto se devuelve `DbNull`, que deja la columna vacía. Usar
+ * `JsonNull` escribiría el valor JSON `null`, y entonces una fila sin detalle
+ * sería indistinguible de una que sí lo tiene.
+ */
+function comoJson(texto: string | null): Prisma.InputJsonValue | typeof Prisma.DbNull {
+  if (!texto) return Prisma.DbNull;
   try {
     return JSON.parse(texto) as Prisma.InputJsonValue;
   } catch {
@@ -49,9 +55,55 @@ function comoJson(texto: string | null): Prisma.InputJsonValue | typeof Prisma.J
   }
 }
 
+/**
+ * `database.sql` deja la base con los datos iniciales: roles, permisos,
+ * usuario administrador, configuración, jornadas y asignaturas de ejemplo.
+ *
+ * Esos registros llevan identificadores nuevos, distintos de los que tiene la
+ * base de origen. Si se migrara encima, chocarían las claves únicas (el nombre
+ * del rol, el código del permiso) y las referencias quedarían apuntando a filas
+ * equivocadas.
+ *
+ * Por eso, antes de traspasar, se vacían las tablas sembradas: los datos reales
+ * vienen de SQLite, que ya incluye esos mismos roles y permisos con sus
+ * identificadores originales y las relaciones intactas.
+ *
+ * Solo se ejecuta si la base destino no tiene información propia todavía.
+ */
+async function prepararDestino(): Promise<boolean> {
+  const docentes = await pg.teacher.count();
+  const marcaciones = await pg.attendance.count();
+  const bitacora = await pg.auditLog.count();
+
+  // Si ya hay datos de trabajo, no se toca nada: se migra de forma incremental
+  if (docentes > 0 || marcaciones > 0 || bitacora > 0) {
+    console.log('  La base destino ya tiene datos propios: se migrará solo lo que falte.\n');
+    return false;
+  }
+
+  const roles = await pg.role.count();
+  if (roles === 0) return false; // base vacía, nada que limpiar
+
+  console.log('  La base contiene los datos iniciales de database.sql.');
+  console.log('  Se reemplazan por los datos reales de la base anterior.\n');
+
+  // TRUNCATE con CASCADE respeta el orden de dependencias por sí mismo
+  await pg.$executeRawUnsafe(`
+    TRUNCATE TABLE
+      audit_logs, attendances, schedules, teacher_subjects, teachers,
+      subjects, shifts, refresh_tokens, users, role_permissions,
+      permissions, roles, settings
+    RESTART IDENTITY CASCADE
+  `);
+
+  return true;
+}
+
 async function main() {
   console.log('\n  Migración de datos: SQLite → PostgreSQL');
   console.log('  ' + '─'.repeat(46) + '\n');
+
+  await prepararDestino();
 
   // ── 1. Roles ───────────────────────────────────────────────────
   paso('Roles');
@@ -403,9 +455,12 @@ async function main() {
   const metaOrigen = await sqlite.auditLog.count({ where: { NOT: { metadata: null } } });
   // En columnas JSONB la ausencia de valor se compara con DbNull, no con null
   const metaDestino = await pg.auditLog.count({ where: { metadata: { not: Prisma.DbNull } } });
-  console.log(`  Auditorías con detalle JSON   ${metaOrigen} → ${metaDestino}` +
-    (metaDestino >= metaOrigen ? '  ok' : '  FALTAN'));
-  if (metaDestino < metaOrigen) errores++;
+  // Aquí el conteo debe ser exacto: un exceso significa que se escribió el
+  // valor JSON `null` donde la columna debía quedar vacía
+  const metaEstado = metaDestino === metaOrigen ? '  ok'
+    : metaDestino > metaOrigen ? '  SOBRAN (se escribió JSON null)' : '  FALTAN';
+  console.log(`  Auditorías con detalle JSON   ${metaOrigen} → ${metaDestino}${metaEstado}`);
+  if (metaDestino !== metaOrigen) errores++;
 
   // Ninguna marcación puede quedar apuntando a un docente inexistente
   const huerfanas = await pg.$queryRaw<{ n: bigint }[]>`

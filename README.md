@@ -127,7 +127,13 @@ Levanta PostgreSQL, la API y el frontend. Las migraciones y el seed se ejecutan 
 | `npm --prefix backend run prisma:studio` | Explorar los datos en el navegador |
 | `npm --prefix backend run seed` | Reponer roles, permisos y datos iniciales |
 | `npm --prefix backend run db:migrar-datos` | Traspasar datos desde una base SQLite anterior |
+| `npm --prefix backend run db:verificar` | Comprobar tablas, vistas, funciones y restricciones |
+| `npm --prefix backend run db:pruebas` | Ciclo alta/consulta/modificación/baja contra la API |
 | `npm --prefix backend run db:reset` | Reconstruir la base desde cero (**borra todo**) |
+
+`db:pruebas` necesita el backend en marcha. Crea un registro de prueba, lo consulta,
+lo modifica, lo da de baja, comprueba que la auditoría anotó quién hizo cada paso y
+retira lo que creó.
 
 La estructura completa está documentada en [`BASE-DE-DATOS.md`](BASE-DE-DATOS.md), con el
 diagrama entidad-relación y la descripción de cada tabla.
