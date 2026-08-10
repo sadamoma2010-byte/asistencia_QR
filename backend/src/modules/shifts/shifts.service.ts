@@ -77,24 +77,19 @@ export class ShiftsService {
   // ─────────────────────────── Mutaciones ──────────────────────────
 
   /**
-   * Busca una jornada por nombre ignorando mayúsculas y acentos.
-   * SQLite no ofrece comparación insensible fuera de ASCII, así que se
-   * acota con `contains` y se resuelve la coincidencia exacta en memoria.
+   * Busca una jornada por nombre ignorando mayusculas.
+   * PostgreSQL resuelve la comparacion en el motor con ILIKE, sin traer
+   * candidatos a memoria como obligaba SQLite.
    */
-  private async findByName(name: string, excludeId?: string) {
-    const candidates = await this.prisma.shift.findMany({
+  private findByName(name: string, excludeId?: string) {
+    return this.prisma.shift.findFirst({
       where: {
-        name: { contains: name },
+        name: { equals: name, mode: 'insensitive' },
         deletedAt: null,
         ...(excludeId ? { NOT: { id: excludeId } } : {}),
       },
       select: { id: true, name: true },
     });
-
-    const normalize = (value: string) =>
-      value.trim().toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-    return candidates.find((c) => normalize(c.name) === normalize(name)) ?? null;
   }
 
   async create(dto: CreateShiftDto, actor: AuthenticatedUser, ctx: RequestContext) {

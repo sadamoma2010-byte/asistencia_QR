@@ -31,7 +31,7 @@ export class PermissionsService {
     return {
       deletedAt: null,
       ...(query.status ? { status: query.status } : {}),
-      ...(query.module ? { module: query.module } : {}),
+      ...(query.module ? { module: { equals: query.module, mode: 'insensitive' } } : {}),
       ...(or ? { OR: or } : {}),
     };
   }

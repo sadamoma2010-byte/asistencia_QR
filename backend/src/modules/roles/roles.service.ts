@@ -145,10 +145,9 @@ export class RolesService {
       if (dto.permissionIds) {
         await tx.rolePermission.deleteMany({ where: { roleId: id } });
         if (dto.permissionIds.length) {
-          // Sin `skipDuplicates`: SQLite no lo admite. El borrado previo y la
-          // validación @ArrayUnique del DTO ya garantizan que no haya repetidos.
           await tx.rolePermission.createMany({
             data: dto.permissionIds.map((permissionId) => ({ roleId: id, permissionId })),
+            skipDuplicates: true,
           });
         }
       }
@@ -197,6 +196,7 @@ export class RolesService {
       this.prisma.rolePermission.deleteMany({ where: { roleId: id } }),
       this.prisma.rolePermission.createMany({
         data: dto.permissionIds.map((permissionId) => ({ roleId: id, permissionId })),
+        skipDuplicates: true,
       }),
     ]);
 

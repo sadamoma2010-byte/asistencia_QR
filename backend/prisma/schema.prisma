@@ -1,15 +1,18 @@
 // ──────────────────────────────────────────────────────────────
 // Sistema Web de Asistencia Docente por QR
+// Motor: PostgreSQL 16
 //
-// Motor: SQLite. Implicaciones respecto a un motor relacional completo:
-//   · No existen ENUM nativos → los campos de estado se guardan como String
-//     y se validan contra las enumeraciones de `src/common/enums.ts`.
-//   · No existe el tipo JSON → `AuditLog.metadata` se guarda serializado.
-//   · No existen tipos nativos (@db.VarChar, @db.Uuid…) → longitudes y
-//     formatos se validan en los DTO.
+// Convenciones del esquema:
+//   · Identificadores UUID v4 generados por la base de datos
+//   · Enumeraciones nativas del motor, no cadenas libres
+//   · Longitudes acotadas con VARCHAR para que la restricción viva
+//     también en la base y no solo en los DTO
+//   · Soft delete obligatorio: `deletedAt` nulo significa vigente
+//   · Auditoría con `metadata` en JSONB, consultable con operadores JSON
 //
-// Todas las entidades usan UUID, createdAt, updatedAt y deletedAt
-// (soft delete obligatorio).
+// Los índices priorizan los accesos reales del sistema: listados
+// filtrados por estado, consultas de asistencia por docente y fecha,
+// y búsqueda de la bitácora por módulo y periodo.
 // ──────────────────────────────────────────────────────────────
 
 generator client {
@@ -17,39 +20,89 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// ─────────────────────────── Usuarios ────────────────────────
+// ═══════════════════════ Enumeraciones ═══════════════════════
 
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("record_status")
+}
+
+enum AttendanceType {
+  CHECK_IN
+  CHECK_OUT
+
+  @@map("attendance_type")
+}
+
+enum AttendanceStatus {
+  /// PUNTUAL — RN008
+  ON_TIME
+  /// TARDE — RN007
+  LATE
+  /// SALIDA ANTICIPADA
+  EARLY_DEPARTURE
+
+  @@map("attendance_status")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  ACTIVATE
+  DEACTIVATE
+  LOGIN
+  LOGOUT
+  ATTENDANCE
+
+  @@map("audit_action")
+}
+
+enum SettingType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+
+  @@map("setting_type")
+}
+
+// ═════════════════════════ Usuarios ══════════════════════════
+
+/// Cuentas de acceso al sistema.
 model User {
-  id        String  @id @default(uuid())
-  firstName String  @map("first_name")
-  lastName  String  @map("last_name")
-  document  String  @unique
-  email     String  @unique
-  phone     String?
-  password  String
+  id        String  @id @default(uuid()) @db.Uuid
+  firstName String  @map("first_name") @db.VarChar(120)
+  lastName  String  @map("last_name") @db.VarChar(120)
+  document  String  @unique @db.VarChar(40)
+  email     String  @unique @db.VarChar(180)
+  phone     String? @db.VarChar(30)
+  /// Hash bcrypt: nunca se almacena la contraseña en claro
+  password  String  @db.VarChar(255)
 
-  /// RecordStatus: ACTIVE | INACTIVE
-  status String @default("ACTIVE")
+  status RecordStatus @default(ACTIVE)
 
-  roleId String @map("role_id")
-  role   Role   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  roleId String @map("role_id") @db.Uuid
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
-  lastLoginAt         DateTime? @map("last_login_at")
-  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
-  lockedUntil         DateTime? @map("locked_until")
+  lastLoginAt         DateTime? @map("last_login_at") @db.Timestamptz(3)
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts") @db.SmallInt
+  lockedUntil         DateTime? @map("locked_until") @db.Timestamptz(3)
   mustChangePassword  Boolean   @default(false) @map("must_change_password")
 
   teacher       Teacher?
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([status, deletedAt])
   @@index([roleId])
@@ -57,209 +110,213 @@ model User {
   @@map("users")
 }
 
+/// Tokens de renovación de sesión, guardados hasheados y con rotación.
 model RefreshToken {
-  id        String    @id @default(uuid())
-  tokenHash String    @map("token_hash")
-  userId    String    @map("user_id")
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime  @map("expires_at")
-  revokedAt DateTime? @map("revoked_at")
-  ipAddress String?   @map("ip_address")
-  userAgent String?   @map("user_agent")
-  createdAt DateTime  @default(now()) @map("created_at")
+  id        String    @id @default(uuid()) @db.Uuid
+  tokenHash String    @map("token_hash") @db.VarChar(255)
+  userId    String    @map("user_id") @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  ipAddress String?   @map("ip_address") @db.VarChar(60)
+  userAgent String?   @map("user_agent") @db.VarChar(400)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([userId, revokedAt])
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
-// ─────────────────────── Roles y permisos ────────────────────
+// ═════════════════════ Roles y permisos ══════════════════════
 
+/// Perfiles de acceso. Los del sistema no pueden eliminarse.
 model Role {
-  id          String  @id @default(uuid())
-  name        String  @unique
-  description String?
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique @db.VarChar(60)
+  description String? @db.VarChar(300)
   isSystem    Boolean @default(false) @map("is_system")
 
-  /// RecordStatus: ACTIVE | INACTIVE
-  status String @default("ACTIVE")
+  status RecordStatus @default(ACTIVE)
 
   users       User[]
   permissions RolePermission[]
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([status, deletedAt])
   @@map("roles")
 }
 
+/// Catálogo de capacidades granulares con formato `modulo.accion`.
 model Permission {
-  id          String  @id @default(uuid())
-  /// Formato módulo.acción, ej. users.create
-  code        String  @unique
-  name        String
-  module      String
-  description String?
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique @db.VarChar(80)
+  name        String  @db.VarChar(120)
+  module      String  @db.VarChar(60)
+  description String? @db.VarChar(300)
   isSystem    Boolean @default(false) @map("is_system")
 
-  /// RecordStatus: ACTIVE | INACTIVE
-  status String @default("ACTIVE")
+  status RecordStatus @default(ACTIVE)
 
   roles RolePermission[]
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([module])
   @@index([status, deletedAt])
   @@map("permissions")
 }
 
+/// Tabla puente entre roles y permisos.
 model RolePermission {
-  roleId       String     @map("role_id")
-  permissionId String     @map("permission_id")
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-  createdAt    DateTime   @default(now()) @map("created_at")
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@id([roleId, permissionId])
+  @@index([permissionId])
   @@map("role_permissions")
 }
 
-// ─────────────────────────── Docentes ────────────────────────
+// ═════════════════════════ Docentes ══════════════════════════
 
+/// Personal docente sujeto al control de asistencia.
 model Teacher {
-  id        String  @id @default(uuid())
-  code      String  @unique
-  firstName String  @map("first_name")
-  lastName  String  @map("last_name")
-  document  String  @unique
-  email     String  @unique
-  phone     String?
+  id        String  @id @default(uuid()) @db.Uuid
+  code      String  @unique @db.VarChar(40)
+  firstName String  @map("first_name") @db.VarChar(120)
+  lastName  String  @map("last_name") @db.VarChar(120)
+  document  String  @unique @db.VarChar(40)
+  email     String  @unique @db.VarChar(200)
+  phone     String? @db.VarChar(30)
 
-  /// Ruta pública de la fotografía, ej. /uploads/teachers/<archivo>.webp
-  photoUrl String? @map("photo_url")
+  /// Ruta pública de la fotografía, servida desde /uploads
+  photoUrl String? @map("photo_url") @db.VarChar(300)
 
-  /// RecordStatus: ACTIVE | INACTIVE
-  status String @default("ACTIVE")
+  status RecordStatus @default(ACTIVE)
 
-  /// Vínculo opcional con la cuenta de acceso del docente
-  userId String? @unique @map("user_id")
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// Cuenta con la que el docente entra a marcar su asistencia
+  userId String? @unique @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   subjects    TeacherSubject[]
   schedules   Schedule[]
   attendances Attendance[]
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([status, deletedAt])
   @@index([code])
+  @@index([lastName, firstName])
   @@map("teachers")
 }
 
-// ───────────────────────── Asignaturas ───────────────────────
+// ═══════════════════════ Asignaturas ═════════════════════════
 
+/// Materias que se imparten en la institución.
 model Subject {
-  id          String  @id @default(uuid())
-  code        String  @unique
-  name        String
-  description String?
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique @db.VarChar(40)
+  name        String  @db.VarChar(120)
+  description String? @db.VarChar(300)
 
   /// Intensidad horaria semanal
-  weeklyHours Int? @map("weekly_hours")
+  weeklyHours Int? @map("weekly_hours") @db.SmallInt
 
-  /// Color de identificación en la interfaz (hex)
-  color String? @default("#4F46E5")
+  /// Color hexadecimal de identificación en la interfaz
+  color String? @default("#4F46E5") @db.VarChar(7)
 
-  /// RecordStatus: ACTIVE | INACTIVE
-  status String @default("ACTIVE")
+  status RecordStatus @default(ACTIVE)
 
   teachers  TeacherSubject[]
   schedules Schedule[]
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([status, deletedAt])
   @@index([code])
   @@map("subjects")
 }
 
-/// Asignaturas que dicta cada docente (relación muchos a muchos)
+/// Asignaturas que dicta cada docente (relación muchos a muchos).
 model TeacherSubject {
-  teacherId String  @map("teacher_id")
-  subjectId String  @map("subject_id")
-  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId String  @map("teacher_id") @db.Uuid
+  subjectId String  @map("subject_id") @db.Uuid
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@id([teacherId, subjectId])
   @@index([subjectId])
   @@map("teacher_subjects")
 }
 
-// ─────────────────────────── Jornadas ────────────────────────
+// ═════════════════════════ Jornadas ══════════════════════════
 
+/// Franjas institucionales sobre las que se arman los horarios.
 model Shift {
-  id          String  @id @default(uuid())
-  name        String  @unique
-  description String?
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique @db.VarChar(80)
+  description String? @db.VarChar(300)
 
-  /// RecordStatus: ACTIVE | INACTIVE
-  status String @default("ACTIVE")
+  status RecordStatus @default(ACTIVE)
 
   schedules Schedule[]
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([status, deletedAt])
   @@map("shifts")
 }
 
-// ─────────────────────────── Horarios ────────────────────────
+// ═════════════════════════ Horarios ══════════════════════════
 
+/// Franja de trabajo de un docente: contra ella se mide la puntualidad.
 model Schedule {
-  id String @id @default(uuid())
+  id String @id @default(uuid()) @db.Uuid
 
-  teacherId String  @map("teacher_id")
-  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacherId String  @map("teacher_id") @db.Uuid
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  shiftId String @map("shift_id")
-  shift   Shift  @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  shiftId String @map("shift_id") @db.Uuid
+  shift   Shift  @relation(fields: [shiftId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
-  /// Asignatura que se dicta en esta franja. Debe ser una de las del docente.
-  subjectId String?  @map("subject_id")
-  subject   Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  /// Asignatura de la franja. Debe estar entre las que dicta el docente.
+  subjectId String?  @map("subject_id") @db.Uuid
+  subject   Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   /// 0 = domingo … 6 = sábado. `null` aplica a todos los días.
-  dayOfWeek Int? @map("day_of_week")
+  dayOfWeek Int? @map("day_of_week") @db.SmallInt
 
-  /// Formato HH:mm (hora local institucional)
-  checkInTime      String @map("check_in_time")
-  checkOutTime     String @map("check_out_time")
-  toleranceMinutes Int    @default(10) @map("tolerance_minutes")
+  /// Formato HH:mm en hora local institucional
+  checkInTime      String @map("check_in_time") @db.VarChar(5)
+  checkOutTime     String @map("check_out_time") @db.VarChar(5)
+  /// Margen en minutos antes de considerar la entrada como tarde (RN007)
+  toleranceMinutes Int    @default(10) @map("tolerance_minutes") @db.SmallInt
 
-  /// RecordStatus: ACTIVE | INACTIVE
-  status String @default("ACTIVE")
+  status RecordStatus @default(ACTIVE)
 
   attendances Attendance[]
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  // La unicidad efectiva la garantiza `SchedulesService.assertNoOverlap()`:
-  // valida el cruce de franjas horarias, no solo la coincidencia exacta, y
-  // convive con el soft delete (un horario eliminado puede volver a crearse).
+  // El cruce de franjas lo valida `SchedulesService.assertNoOverlap()`:
+  // comprueba solapamiento horario, no solo coincidencia exacta.
   @@index([teacherId, status])
   @@index([teacherId, dayOfWeek])
   @@index([shiftId])
@@ -267,80 +324,82 @@ model Schedule {
   @@map("schedules")
 }
 
-// ────────────────────────── Asistencia ───────────────────────
+// ════════════════════════ Asistencia ═════════════════════════
 
+/// Marcación de entrada o salida. Es la evidencia del sistema.
 model Attendance {
-  id String @id @default(uuid())
+  id String @id @default(uuid()) @db.Uuid
 
-  teacherId String  @map("teacher_id")
-  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+  teacherId String  @map("teacher_id") @db.Uuid
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
-  scheduleId String?   @map("schedule_id")
-  schedule   Schedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  scheduleId String?   @map("schedule_id") @db.Uuid
+  schedule   Schedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  /// AttendanceType: CHECK_IN | CHECK_OUT
-  type String
+  type   AttendanceType
+  status AttendanceStatus
 
-  /// AttendanceStatus: ON_TIME | LATE | EARLY_DEPARTURE
-  status String
+  /// Fecha local de la marcación, sin componente horario
+  date DateTime @db.Date
 
-  /// Fecha local de la marcación, anclada a medianoche UTC
-  date DateTime
+  /// Instante exacto del registro
+  registeredAt DateTime @map("registered_at") @db.Timestamptz(3)
 
-  /// Instante exacto de la marcación
-  registeredAt DateTime @map("registered_at")
+  /// Hora esperada según el horario aplicado (HH:mm)
+  expectedTime String? @map("expected_time") @db.VarChar(5)
 
-  /// Hora esperada según horario (HH:mm)
-  expectedTime String? @map("expected_time")
+  /// Minutos de diferencia: positivo llegó tarde, negativo se anticipó
+  minutesDiff Int @default(0) @map("minutes_diff") @db.SmallInt
 
-  /// Minutos de diferencia: positivo = tarde, negativo = anticipado
-  minutesDiff Int @default(0) @map("minutes_diff")
+  ipAddress String? @map("ip_address") @db.VarChar(60)
+  userAgent String? @map("user_agent") @db.VarChar(400)
+  device    String? @db.VarChar(120)
+  notes     String? @db.VarChar(400)
 
-  ipAddress String? @map("ip_address")
-  userAgent String? @map("user_agent")
-  device    String?
-  notes     String?
+  /// Quién ejecutó el registro: el propio docente o un administrativo
+  registeredById String? @map("registered_by_id") @db.Uuid
 
-  registeredById String? @map("registered_by_id")
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([teacherId, date])
   @@index([date, type])
   @@index([status])
+  @@index([scheduleId])
+  @@index([deletedAt])
   @@map("attendances")
 }
 
-// ─────────────────────────── Auditoría ───────────────────────
+// ════════════════════════ Auditoría ══════════════════════════
 
+/// Bitácora de toda acción del sistema (RN009).
 model AuditLog {
-  id String @id @default(uuid())
+  id String @id @default(uuid()) @db.Uuid
 
-  userId String? @map("user_id")
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
-  userEmail String? @map("user_email")
-  userName  String? @map("user_name")
+  /// Se conservan copiados: el evento debe seguir siendo legible
+  /// aunque el usuario se elimine más adelante
+  userEmail String? @map("user_email") @db.VarChar(180)
+  userName  String? @map("user_name") @db.VarChar(240)
 
-  /// AuditAction: CREATE | UPDATE | DELETE | ACTIVATE | DEACTIVATE | LOGIN | LOGOUT | ATTENDANCE
-  action String
+  action      AuditAction
+  module      String      @db.VarChar(60)
+  entityId    String?     @map("entity_id") @db.VarChar(60)
+  description String      @db.VarChar(500)
 
-  module      String
-  entityId    String? @map("entity_id")
-  description String
+  ipAddress String? @map("ip_address") @db.VarChar(60)
+  userAgent String? @map("user_agent") @db.VarChar(400)
+  device    String? @db.VarChar(120)
 
-  ipAddress String? @map("ip_address")
-  userAgent String? @map("user_agent")
-  device    String?
+  /// Detalle estructurado del evento, consultable con operadores JSON
+  metadata Json? @db.JsonB
 
-  /// JSON serializado (SQLite no tiene tipo JSON nativo)
-  metadata String?
-
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([userId])
   @@index([action])
@@ -349,25 +408,27 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-// ───────────────────────── Configuración ─────────────────────
+// ═══════════════════════ Configuración ═══════════════════════
 
+/// Parámetros del sistema editables sin desplegar código.
 model Setting {
-  id    String @id @default(uuid())
-  key   String @unique
-  value String
+  id    String @id @default(uuid()) @db.Uuid
+  key   String @unique @db.VarChar(80)
+  value String @db.Text
 
-  /// SettingType: STRING | NUMBER | BOOLEAN | JSON
-  type String @default("STRING")
+  type SettingType @default(STRING)
 
-  group       String  @default("general")
-  label       String
-  description String?
+  group       String  @default("general") @db.VarChar(60)
+  label       String  @db.VarChar(160)
+  description String? @db.VarChar(400)
+  /// Accesible sin autenticación (nombre institucional, zona horaria)
   isPublic    Boolean @default(false) @map("is_public")
+  /// Su modificación exige además tocar la configuración del servidor
   isSystem    Boolean @default(false) @map("is_system")
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   @@index([group])
   @@map("settings")

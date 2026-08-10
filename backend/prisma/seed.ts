@@ -206,11 +206,11 @@ async function main() {
     const codes = r.permissions(allCodes);
     await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
     await prisma.rolePermission.createMany({
-      // SQLite no admite `skipDuplicates`; el deleteMany previo evita colisiones
       data: codes
         .map((code) => permissionByCode.get(code))
         .filter((id): id is string => Boolean(id))
         .map((permissionId) => ({ roleId: role.id, permissionId })),
+      skipDuplicates: true,
     });
 
     console.log(`✓ Rol ${r.name.padEnd(14)} → ${codes.length} permisos`);

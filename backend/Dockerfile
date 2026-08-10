@@ -4,8 +4,8 @@ RUN apk add --no-cache openssl libc6-compat
 WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma
-# Directorio del archivo SQLite (montado como volumen en docker-compose)
-RUN mkdir -p /app/prisma/data
+# Directorio de las fotografías de docentes (volumen en docker-compose)
+RUN mkdir -p /app/uploads/teachers
 
 # ────────────────────── development ─────────────────────
 FROM base AS development

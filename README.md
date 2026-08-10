@@ -12,7 +12,7 @@ genera reportes exportables a Excel y mantiene auditoría completa de todas las 
 |---|---|
 | Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 3, Shadcn UI, React Hook Form, Zod, TanStack Query 5, Framer Motion, Lucide React |
 | Backend | NestJS 10, TypeScript, Passport JWT, Swagger, ExcelJS |
-| Base de datos | SQLite (archivo local, sin servidor) |
+| Base de datos | PostgreSQL 14+ |
 | ORM | Prisma 5 |
 | Auth | JWT + Refresh Token (rotación), bcrypt |
 | Autorización | RBAC (Roles + Permisos granulares) |
@@ -42,54 +42,95 @@ ASISTENCIA_QR_2026_SENA/
 
 ---
 
-## Puesta en marcha
+## Requisitos
 
-No hace falta instalar ni configurar un servidor de base de datos: SQLite guarda
-todo en `backend/prisma/data/app.db`, que se crea solo al aplicar las migraciones.
+| | |
+|---|---|
+| Node.js | 20 o superior |
+| PostgreSQL | 14 o superior, en marcha |
 
-### Opción A — Local
+## Instalación
+
+### 1. Dependencias
 
 ```bash
-# 1. Backend
-cd backend
-cp .env.example .env
-npm install
-npx prisma migrate deploy   # crea el archivo app.db y las tablas
-npm run seed                # roles, permisos, usuario inicial y jornadas
-npm run start:dev           # http://localhost:4000
-
-# 2. Frontend (otra terminal)
-cd frontend
-cp .env.example .env.local
-npm install
-npm run dev                 # http://localhost:3000
+npm --prefix backend install
+npm --prefix frontend install
 ```
 
-### Opción B — Docker
+### 2. Base de datos
+
+Un solo comando deja PostgreSQL listo: crea la base, ejecuta [`database.sql`](database.sql),
+escribe la conexión en `backend/.env` y traspasa los datos que hubiera de una instalación
+anterior.
+
+```powershell
+.\scripts\configurar-postgres.ps1
+```
+
+Pide la contraseña de PostgreSQL en la terminal. No queda escrita en el código: se guarda
+únicamente en `backend/.env`, que está excluido del repositorio.
+
+<details>
+<summary>Hacerlo manualmente</summary>
+
+```bash
+createdb -U postgres asistencia_qr
+psql -U postgres -d asistencia_qr -f database.sql
+```
+
+Luego escriba la conexión en `backend/.env`:
+
+```
+DATABASE_URL=postgresql://usuario:contrasena@localhost:5432/asistencia_qr?schema=public
+```
+
+Y genere el cliente:
+
+```bash
+npm --prefix backend run prisma:generate
+```
+</details>
+
+### 3. Frontend
+
+```bash
+cp frontend/.env.example frontend/.env.local
+```
+
+### 4. Arranque
+
+```bash
+npm --prefix backend run start:dev     # http://localhost:4000
+npm --prefix frontend run dev          # http://localhost:3000
+```
+
+| Servicio | Dirección |
+|---|---|
+| Aplicación | http://localhost:3000 |
+| API | http://localhost:4000/api/v1 |
+| Swagger | http://localhost:4000/api/docs |
+
+### Con Docker
 
 ```bash
 cp .env.example .env
 docker compose up -d --build
 ```
 
-- Frontend: http://localhost:3000
-- API: http://localhost:4000/api/v1
-- Swagger: http://localhost:4000/api/docs
+Levanta PostgreSQL, la API y el frontend. Las migraciones y el seed se ejecutan solos.
 
-Las migraciones y el seed se ejecutan automáticamente al levantar el backend.
-El archivo SQLite persiste en el volumen `sqlite_data`.
+## Operaciones sobre la base de datos
 
-### Reiniciar la base de datos desde cero
+| Comando | Efecto |
+|---|---|
+| `npm --prefix backend run prisma:studio` | Explorar los datos en el navegador |
+| `npm --prefix backend run seed` | Reponer roles, permisos y datos iniciales |
+| `npm --prefix backend run db:migrar-datos` | Traspasar datos desde una base SQLite anterior |
+| `npm --prefix backend run db:reset` | Reconstruir la base desde cero (**borra todo**) |
 
-```bash
-cd backend && npx prisma migrate reset --force
-```
-
-### Inspeccionar los datos
-
-```bash
-cd backend && npx prisma studio
-```
+La estructura completa está documentada en [`BASE-DE-DATOS.md`](BASE-DE-DATOS.md), con el
+diagrama entidad-relación y la descripción de cada tabla.
 
 ---
 
@@ -143,6 +184,21 @@ cd backend && npx prisma studio
 - Sanitización de entradas y `helmet` en la capa HTTP.
 - Soft delete obligatorio en todas las entidades.
 
+### Credenciales
+
+Ningún dato de conexión vive en el código. Todo se lee de variables de entorno:
+
+| Variable | Contenido |
+|---|---|
+| `DATABASE_URL` | Servidor, puerto, base, usuario y contraseña de PostgreSQL |
+| `JWT_ACCESS_SECRET` | Clave de firma del token de acceso |
+| `JWT_REFRESH_SECRET` | Clave de firma del token de renovación |
+
+Se definen en `backend/.env`, excluido del repositorio por `.gitignore`. La plantilla
+`backend/.env.example` sí está versionada, con valores de ejemplo sin ningún secreto real.
+
+Para producción, cambie ambos secretos JWT: los valores de la plantilla son públicos.
+
 ---
 
 ## API
@@ -150,7 +206,7 @@ cd backend && npx prisma studio
 Base: `/api/v1` — Swagger en `/api/docs`
 
 ```
-/auth        /users       /roles      /permissions   /teachers
+/auth        /users       /roles      /permissions   /teachers   /subjects
 /shifts      /schedules   /attendance /reports       /audit      /settings
 ```
 
@@ -169,22 +225,29 @@ GET    /module/export       Exportación a Excel
 
 ---
 
-## Nota sobre SQLite
+## Base de datos
 
-La persistencia se implementó sobre SQLite por decisión del cliente. Implicaciones
-que conviene tener presentes:
+La estructura completa, con el diagrama entidad-relación y la función de cada tabla,
+está en [`BASE-DE-DATOS.md`](BASE-DE-DATOS.md).
 
 | Aspecto | Comportamiento |
 |---|---|
-| **Concurrencia de escritura** | SQLite admite un único escritor a la vez. Con muchos docentes marcando en el mismo instante pueden aparecer esperas o errores `SQLITE_BUSY`. |
-| **Enumeraciones** | No existen `ENUM` nativos: los estados se guardan como texto y se validan contra `src/common/enums.ts`. |
-| **Campo JSON** | `AuditLog.metadata` se almacena serializado y se deserializa al leerlo. |
-| **Búsquedas** | `LIKE` ignora mayúsculas solo en ASCII. «Ángela» no coincide con «ángela»; los nombres sin tilde funcionan normalmente. |
-| **Respaldo** | Copiar `backend/prisma/data/app.db` con el servicio detenido es un respaldo completo. |
+| **Concurrencia** | PostgreSQL admite escrituras simultáneas con control de versiones: varios docentes pueden marcar a la vez sin bloquearse. |
+| **Enumeraciones** | Tipos `ENUM` nativos. La base rechaza cualquier estado fuera de la lista. |
+| **Campo JSON** | `audit_logs.metadata` es JSONB con índice GIN: se puede buscar dentro del detalle de cada evento. |
+| **Búsquedas** | `ILIKE` ignora mayúsculas incluso con tildes: «Ángela» coincide con «ángela». |
+| **Integridad** | Claves foráneas y restricciones `CHECK` en el motor, no solo en la aplicación. |
+| **Respaldo** | `pg_dump -U postgres asistencia_qr > respaldo.sql` |
 
-Migrar más adelante a PostgreSQL requiere cambiar `provider` en `schema.prisma`,
-restituir los tipos nativos y las enumeraciones, y regenerar las migraciones.
-La capa de servicios no cambia.
+### Reconstruir la base
+
+[`database.sql`](database.sql) crea todo desde cero: tipos, tablas, claves, restricciones,
+índices, vistas, funciones y datos iniciales.
+
+```bash
+createdb -U postgres asistencia_qr
+psql -U postgres -d asistencia_qr -f database.sql
+```
 
 ## Publicar cambios en GitHub
 

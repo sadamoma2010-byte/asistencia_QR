@@ -23,11 +23,11 @@ export function buildOrderBy(
 }
 
 /**
- * Filtro `contains` de Prisma para varios campos.
+ * Filtro `contains` insensible a mayúsculas para varios campos.
  *
- * SQLite no admite `mode: 'insensitive'`. Su operador LIKE ya ignora
- * mayúsculas y minúsculas para caracteres ASCII, que cubre el caso habitual;
- * las vocales acentuadas sí distinguen caso ("Ángela" no coincide con "ángela").
+ * PostgreSQL admite `mode: 'insensitive'`, que Prisma traduce a ILIKE. A
+ * diferencia del LIKE de SQLite, funciona también con vocales acentuadas:
+ * «Ángela» coincide con «ángela».
  */
 export function buildSearchFilter(
   search: string | undefined,
@@ -39,8 +39,8 @@ export function buildSearchFilter(
   return fields.map((field) => {
     if (field.includes('.')) {
       const [relation, column] = field.split('.');
-      return { [relation]: { [column]: { contains: term } } };
+      return { [relation]: { [column]: { contains: term, mode: 'insensitive' } } };
     }
-    return { [field]: { contains: term } };
+    return { [field]: { contains: term, mode: 'insensitive' } };
   });
 }
