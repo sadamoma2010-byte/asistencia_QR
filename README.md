@@ -100,6 +100,24 @@ cp frontend/.env.example frontend/.env.local
 
 ### 4. Arranque
 
+Lo más sencillo es doble clic en **`INICIAR-APLICACION.bat`**. Comprueba que PostgreSQL
+esté encendido, levanta backend y frontend en sus propias ventanas, espera a que ambos
+respondan y abre el navegador.
+
+Lo mismo desde la terminal:
+
+```bash
+npm run dev
+```
+
+Para apagarlo:
+
+```bash
+npm run stop
+```
+
+O cada servidor por separado, si prefiere ver sus registros:
+
 ```bash
 npm --prefix backend run start:dev     # http://localhost:4000
 npm --prefix frontend run dev          # http://localhost:3000
@@ -110,6 +128,9 @@ npm --prefix frontend run dev          # http://localhost:3000
 | Aplicación | http://localhost:3000 |
 | API | http://localhost:4000/api/v1 |
 | Swagger | http://localhost:4000/api/docs |
+
+> Las dos ventanas que abre el arranque **son los servidores**. Si se cierran, la
+> aplicación deja de responder y el navegador mostrará que no puede conectar.
 
 ### Con Docker
 
