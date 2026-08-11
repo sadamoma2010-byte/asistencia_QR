@@ -9,10 +9,12 @@ const Interfaz = (() => {
 
   // ── Avisos emergentes ─────────────────────────────────────────────
 
+  // Superficies sólidas con color suave, como los avisos del sistema
+  // original. Nada translúcido: el resto de la interfaz tampoco lo es.
   const ESTILOS_AVISO = {
-    exito: 'border-success/30 bg-success/10 text-emerald-800',
-    error: 'border-destructive/30 bg-destructive/10 text-red-800',
-    aviso: 'border-warning/30 bg-warning/10 text-amber-900',
+    exito: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    error: 'border-red-200 bg-red-50 text-red-800',
+    aviso: 'border-amber-200 bg-amber-50 text-amber-900',
     info: 'border-border bg-card text-foreground',
   };
 
@@ -22,20 +24,35 @@ const Interfaz = (() => {
 
     const nodo = document.createElement('div');
     nodo.className =
-      'pointer-events-auto flex items-start gap-2 rounded-lg border px-4 py-3 text-sm ' +
-      'shadow-elevated backdrop-blur-md animate-slide-up ' +
+      'pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ' +
+      'shadow-elevated animate-slide-up ' +
       (ESTILOS_AVISO[tipo] || ESTILOS_AVISO.info);
     nodo.setAttribute('role', tipo === 'error' ? 'alert' : 'status');
-    nodo.textContent = mensaje;
 
+    const texto = document.createElement('span');
+    texto.className = 'min-w-0 flex-1';
+    texto.textContent = mensaje;
+
+    const cerrar = document.createElement('button');
+    cerrar.type = 'button';
+    cerrar.className = 'shrink-0 opacity-60 transition hover:opacity-100';
+    cerrar.setAttribute('aria-label', 'Cerrar aviso');
+    cerrar.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">' +
+      '<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
+    nodo.append(texto, cerrar);
     contenedor.appendChild(nodo);
 
-    setTimeout(() => {
+    const retirar = () => {
       nodo.style.transition = 'opacity .25s, transform .25s';
       nodo.style.opacity = '0';
       nodo.style.transform = 'translateX(12px)';
       setTimeout(() => nodo.remove(), 250);
-    }, milisegundos);
+    };
+
+    cerrar.addEventListener('click', retirar);
+    setTimeout(retirar, milisegundos);
   }
 
   // ── Diálogo de confirmación ───────────────────────────────────────

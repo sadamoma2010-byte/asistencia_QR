@@ -375,13 +375,17 @@ const Formulario = (() => {
 
     const nodo = document.createElement('div');
     nodo.id = 'dialogo-formulario';
+    // Misma superficie que el resto de la interfaz. En pantallas pequeñas se
+    // abre desde abajo, como hacían los diálogos del sistema original.
     nodo.className =
-      'fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-sm';
+      'fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/40 ' +
+      'backdrop-blur-sm sm:items-start sm:p-4';
     nodo.setAttribute('role', 'dialog');
     nodo.setAttribute('aria-modal', 'true');
 
     nodo.innerHTML = `
-      <div class="glass-card my-8 w-full max-w-2xl rounded-xl animate-slide-up">
+      <div class="w-full max-w-2xl rounded-t-2xl border border-border bg-card shadow-elevated
+                  animate-slide-up sm:my-8 sm:rounded-xl">
         <div class="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
           <h2 class="text-lg font-semibold text-foreground">${esc(titulo)}</h2>
           <button type="button" data-cerrar
