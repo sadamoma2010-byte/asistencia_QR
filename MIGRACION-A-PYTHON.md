@@ -42,7 +42,7 @@ existe.
 | TypeScript | Python | Por qué |
 |---|---|---|
 | Prisma Client | `SQLAlchemy 2.0` | ORM con tipado y consultas componibles. |
-| `schema.prisma` | `modelos/` | Modelos declarativos mapeados a las tablas existentes. |
+| Esquema de Prisma | `modelos/` | Modelos declarativos mapeados a las tablas existentes. |
 | `mode: 'insensitive'` | `ilike()` | Prisma traducía a `ILIKE`; aquí se usa directamente. |
 | `Json @db.JsonB` | `JSONB` de SQLAlchemy | Mismo tipo de columna. |
 | `Prisma.DbNull` | `None` | En SQLAlchemy la ausencia de valor ya es `NULL`. |
@@ -125,19 +125,32 @@ respaldada por una comprobación que puede volver a ejecutarse.
 |---|---|---|
 | Los modelos casan con las tablas reales | `python herramientas/verificar_modelos.py` | 13 de 13 |
 | La sesión funciona como antes | `python herramientas/probar_auth.py` | 21 de 21 |
-| **Cada respuesta es igual a la del original** | `python herramientas/comparar_api.py` | **42 de 42** |
 | Las pantallas responden con su contenido | `python herramientas/probar_pantallas.py` | 15 de 15 |
 | Las reglas RN001–RN009 se comportan igual | `python herramientas/probar_reglas.py` | 9 de 9 |
 | Alta, edición y baja en cada módulo | `python herramientas/probar_crud.py` | 7 módulos |
 
-`comparar_api.py` es la comprobación central: levanta la aplicación Python,
-llama al backend TypeScript original y contrasta ambas respuestas campo por
-campo. Solo se toleran dos clases de diferencia, y ambas están justificadas:
+### La comparación con el sistema original
+
+La comprobación central fue contrastar ambas aplicaciones **respuesta por
+respuesta**: se levantaban las dos a la vez, se llamaba a los mismos puntos de
+la API y se comparaban los cuerpos campo por campo.
+
+**Resultado: 42 de 42 idénticas**, sobre los doce módulos.
+
+Solo se toleraron dos clases de diferencia, ambas justificadas:
 
 - **Marcas de tiempo y tokens**, que no pueden coincidir entre dos ejecuciones.
-- **El orden de los empates**, allí donde el original no define ninguno: una
+- **El orden de los empates**, allí donde el original no definía ninguno: una
   relación sin `orderBy` o un listado ordenado por una columna con valores
-  repetidos. En esos casos se compara el conjunto de datos, no la secuencia.
+  repetidos. En esos casos se comparaba el conjunto de datos, no la secuencia.
+
+Esa comparación exigía tener las dos versiones en marcha. Al retirar la
+TypeScript, la herramienta dejó de tener contra qué comparar y se retiró con
+ella. Para reproducirla hay que recuperar aquella versión del historial:
+
+```bash
+git checkout v2.1.1 -- backend/ herramientas/comparar_api.py
+```
 
 ---
 

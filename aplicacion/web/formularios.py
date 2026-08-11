@@ -74,8 +74,8 @@ FORMULARIOS: dict[str, dict] = {
         "genero": "el",
         "sugerir_codigo": "/teachers/next-code",
         "campos": [
-            campo("code", "Código", obligatorio=True, ancho="mitad",
-                  ayuda="Se sugiere el siguiente disponible"),
+            campo("code", "Código", obligatorio=True, ancho="mitad", automatico=True,
+                  ayuda="Se asigna automáticamente, siguiendo la numeración"),
             campo("document", "Documento", obligatorio=True, ancho="mitad"),
             campo("firstName", "Nombres", obligatorio=True, ancho="mitad"),
             campo("lastName", "Apellidos", obligatorio=True, ancho="mitad"),
@@ -97,7 +97,8 @@ FORMULARIOS: dict[str, dict] = {
         "genero": "la",
         "sugerir_codigo": "/subjects/next-code",
         "campos": [
-            campo("code", "Código", obligatorio=True, ancho="mitad"),
+            campo("code", "Código", obligatorio=True, ancho="mitad", automatico=True,
+                  ayuda="Se asigna automáticamente, siguiendo la numeración"),
             campo("name", "Nombre", obligatorio=True, ancho="mitad"),
             campo("description", "Descripción", "parrafo"),
             campo("weeklyHours", "Horas por semana", "numero", ancho="mitad",

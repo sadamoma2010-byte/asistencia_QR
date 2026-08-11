@@ -55,9 +55,9 @@ function PuertoActivo([int]$puerto) {
 }
 
 # ── Comprobar que la conexión esté configurada ──────────────────────
-$entorno = Join-Path $raiz 'backend\.env'
+$entorno = Join-Path $raiz '.env'
 if (-not (Test-Path $entorno)) {
-  Alto 'Falta backend\.env: la base de datos no esta configurada.'
+  Alto 'Falta el archivo .env: la base de datos no esta configurada.'
   Nota 'Ejecute primero CONFIGURAR-BASE-DE-DATOS.bat'
   Write-Host ''
   exit 1

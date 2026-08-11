@@ -1,23 +1,12 @@
 {
   "name": "asistencia-qr-2026",
-  "version": "1.0.0",
+  "version": "3.2.0",
   "private": true,
   "description": "Sistema Web de Asistencia Docente por QR",
   "scripts": {
     "dev": "powershell -ExecutionPolicy Bypass -File scripts/iniciar.ps1",
     "stop": "powershell -ExecutionPolicy Bypass -File scripts/detener.ps1",
-    "estilos": "tailwindcss -c tailwind.config.js -i aplicacion/estaticos/css/fuente.css -o aplicacion/estaticos/css/estilos.css --minify",
-    "estilos:watch": "tailwindcss -c tailwind.config.js -i aplicacion/estaticos/css/fuente.css -o aplicacion/estaticos/css/estilos.css --watch",
-    "install:all": "npm --prefix backend install && npm --prefix frontend install",
-    "dev:api": "npm --prefix backend run start:dev",
-    "dev:web": "npm --prefix frontend run dev",
-    "build": "npm --prefix backend run build && npm --prefix frontend run build",
-    "typecheck": "npm --prefix backend exec tsc -- --noEmit && npm --prefix frontend run typecheck",
-    "db:migrate": "npm --prefix backend run prisma:deploy",
-    "db:seed": "npm --prefix backend run seed",
-    "db:studio": "npm --prefix backend run prisma:studio",
-    "docker:up": "docker compose up -d --build",
-    "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f"
+    "estilos": "npx --yes tailwindcss@3 -c tailwind.config.js -i aplicacion/estaticos/css/fuente.css -o aplicacion/estaticos/css/estilos.css --minify",
+    "estilos:watch": "npx --yes tailwindcss@3 -c tailwind.config.js -i aplicacion/estaticos/css/fuente.css -o aplicacion/estaticos/css/estilos.css --watch"
   }
 }

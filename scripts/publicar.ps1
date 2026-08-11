@@ -72,7 +72,7 @@ if (-not $cambios) {
 
 # Ningún archivo sensible debe llegar al repositorio, ni siquiera por descuido
 Paso 'Comprobando que no se suban archivos sensibles'
-$prohibidos = @('backend/.env', 'frontend/.env.local', 'backend/prisma/data/app.db')
+$prohibidos = @('.env', 'uploads/')
 $rastreados = git ls-files
 $fuga = $prohibidos | Where-Object { $rastreados -contains $_ }
 
@@ -119,12 +119,16 @@ $modificados = git status --porcelain | ForEach-Object { $_.Substring(3).Trim('"
 $porArea = @{}
 foreach ($f in $modificados) {
   $area = switch -Regex ($f) {
-    '^backend/prisma/'  { 'Base de datos' }
-    '^backend/'         { 'Backend' }
-    '^frontend/'        { 'Frontend' }
-    '^scripts/'         { 'Automatizacion' }
-    '^versiones/'       { 'Documentacion' }
-    default             { 'Proyecto' }
+    '^aplicacion/modelos/'    { 'Modelos de datos' }
+    '^aplicacion/modulos/'    { 'Modulos' }
+    '^aplicacion/plantillas/' { 'Interfaz' }
+    '^aplicacion/estaticos/'  { 'Interfaz' }
+    '^aplicacion/'            { 'Aplicacion' }
+    '^herramientas/'          { 'Comprobaciones' }
+    '^scripts/'               { 'Automatizacion' }
+    '^versiones/'             { 'Documentacion' }
+    'database\.sql$'          { 'Base de datos' }
+    default                   { 'Proyecto' }
   }
   if (-not $porArea.ContainsKey($area)) { $porArea[$area] = @() }
   $porArea[$area] += $f

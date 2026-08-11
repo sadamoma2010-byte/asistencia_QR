@@ -3,7 +3,7 @@
 Motor: **PostgreSQL 14 o superior** · 13 tablas · 5 tipos enumerados · 2 vistas · 2 funciones
 
 El archivo [`database.sql`](database.sql) reconstruye todo desde cero. Se genera a partir de
-[`backend/prisma/schema.prisma`](backend/prisma/schema.prisma), que es la fuente de verdad
+los modelos de `aplicacion/modelos/`, que reflejan la estructura definida
 del esquema.
 
 ---

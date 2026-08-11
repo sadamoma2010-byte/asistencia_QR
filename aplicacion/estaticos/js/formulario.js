@@ -27,6 +27,21 @@ const Formulario = (() => {
     const { campo, tipo } = definicion;
     const v = valor ?? definicion.defecto ?? '';
 
+    // Los campos automáticos no se escriben a mano: los asigna el sistema
+    // siguiendo la numeración. Se muestran para que se vean, pero bloqueados.
+    if (definicion.automatico) {
+      return `<div class="relative">
+          <input type="text" name="${campo}" value="${esc(v)}" readonly tabindex="-1"
+                 class="${CLASE_CAMPO} cursor-not-allowed bg-muted pr-10 text-muted-foreground">
+          <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground">
+            <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+              <rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/>
+              <path d="M8 10V7a4 4 0 118 0v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </span>
+        </div>`;
+    }
+
     switch (tipo) {
       case 'parrafo':
         return `<textarea name="${campo}" rows="3"
@@ -462,16 +477,21 @@ const Formulario = (() => {
       });
     });
 
-    // Código sugerido al dar de alta
+    // Código asignado automáticamente al dar de alta
     if (!esEdicion && definicion.sugerir_codigo) {
       const campoCodigo = formulario.querySelector('[name="code"]');
       if (campoCodigo && !campoCodigo.value) {
+        campoCodigo.value = 'Asignando…';
         Api.get(definicion.sugerir_codigo)
           .then((datos) => {
-            if (datos && !campoCodigo.value) campoCodigo.value = datos.code;
+            campoCodigo.value = datos ? datos.code : '';
           })
           .catch(() => {
-            /* si falla, el usuario escribe el código a mano */
+            // Sin número no se puede continuar: se desbloquea para escribirlo
+            campoCodigo.value = '';
+            campoCodigo.readOnly = false;
+            campoCodigo.classList.remove('cursor-not-allowed', 'bg-muted', 'text-muted-foreground');
+            Interfaz.aviso('No se pudo asignar el código automáticamente; escríbalo a mano', 'aviso');
           });
       }
     }
@@ -523,7 +543,20 @@ const Formulario = (() => {
           } else if (esEdicion) {
             resultado = await Api.patch(`/${definicion.recurso}/${registro.id}`, cuerpo);
           } else {
-            resultado = await Api.post(`/${definicion.recurso}`, cuerpo);
+            try {
+              resultado = await Api.post(`/${definicion.recurso}`, cuerpo);
+            } catch (choque) {
+              // Si otra persona tomó ese número mientras se rellenaba el
+              // formulario, se pide el siguiente y se reintenta una vez.
+              const codigoOcupado =
+                choque.codigo === 409 && definicion.sugerir_codigo && cuerpo.code;
+              if (!codigoOcupado) throw choque;
+
+              const siguiente = await Api.get(definicion.sugerir_codigo);
+              cuerpo.code = siguiente.code;
+              formulario.querySelector('[name="code"]').value = siguiente.code;
+              resultado = await Api.post(`/${definicion.recurso}`, cuerpo);
+            }
           }
 
           // Las relaciones se envían después, ya con el identificador

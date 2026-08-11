@@ -1,12 +1,10 @@
 """
 Configuración de la aplicación.
 
-Sustituye a `backend/src/config/configuration.ts` y a `@nestjs/config`.
+Sustituye a la configuración del sistema anterior y a `@nestjs/config`.
 
-Ninguna credencial vive en el código: todo se lee de variables de entorno.
-Se busca el archivo `.env` en la raíz del proyecto y, si no está, se reutiliza
-el `backend/.env` que ya dejó configurado el instalador de PostgreSQL, para no
-obligar a configurar la conexión dos veces.
+Ninguna credencial vive en el código: todo se lee de variables de entorno,
+del archivo `.env` de la raíz del proyecto.
 """
 
 from __future__ import annotations
@@ -22,11 +20,11 @@ RAIZ = Path(__file__).resolve().parent.parent
 
 
 def _cargar_entorno() -> Path | None:
-    """Carga el primer `.env` que exista, en orden de preferencia."""
-    for candidato in (RAIZ / ".env", RAIZ / "backend" / ".env"):
-        if candidato.is_file():
-            load_dotenv(candidato, override=False)
-            return candidato
+    """Carga el `.env` de la raíz, si existe."""
+    candidato = RAIZ / ".env"
+    if candidato.is_file():
+        load_dotenv(candidato, override=False)
+        return candidato
     return None
 
 
@@ -137,9 +135,9 @@ class Config:
     ]
 
     # ── Archivos subidos ─────────────────────────────────────────────
-    # Se conserva la ruta del sistema anterior para que las fotografías
-    # ya subidas sigan resolviéndose sin mover nada.
-    CARPETA_SUBIDAS = RAIZ / "backend" / "uploads"
+    # Las rutas guardadas en la base son públicas (`/uploads/teachers/…`),
+    # así que mover la carpeta no invalida ninguna fotografía existente.
+    CARPETA_SUBIDAS = RAIZ / "uploads"
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB, igual que el límite anterior
 
     # ── Usuario inicial ──────────────────────────────────────────────
@@ -152,7 +150,8 @@ class Config:
 
         if not cls.SQLALCHEMY_DATABASE_URI:
             problemas.append(
-                "Falta DATABASE_URL. Ejecute CONFIGURAR-BASE-DE-DATOS.bat para generarlo."
+                "Falta DATABASE_URL en el archivo .env. "
+                "Ejecute CONFIGURAR-BASE-DE-DATOS.bat para generarlo."
             )
         elif not cls.SQLALCHEMY_DATABASE_URI.startswith("postgresql"):
             problemas.append("DATABASE_URL no apunta a PostgreSQL.")

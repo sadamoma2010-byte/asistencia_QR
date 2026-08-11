@@ -216,33 +216,74 @@
 
   // ── Pintado ─────────────────────────────────────────────────────
 
+  // ── Acciones de fila, como iconos ───────────────────────────────
+
+  const ICONOS_ACCION = {
+    editar:
+      '<path d="M4 16.5V20h3.5L18 9.5 14.5 6 4 16.5z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>' +
+      '<path d="M13.5 7l3.5 3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+    clave:
+      '<rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/>' +
+      '<path d="M8 10V7a4 4 0 118 0v3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+    inactivar:
+      '<circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/>' +
+      '<path d="M9 12h6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>',
+    activar:
+      '<circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/>' +
+      '<path d="M8.5 12.2l2.4 2.4 4.6-4.8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>',
+    eliminar:
+      '<path d="M5 7h14M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2" ' +
+      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
+  };
+
+  /**
+   * Botón de acción con icono.
+   *
+   * El texto no desaparece: viaja en `aria-label` para los lectores de
+   * pantalla y en `title` para quien pase el ratón por encima.
+   */
+  function iconoAccion(accion, etiqueta, id, color) {
+    return `<button type="button" data-accion="${accion}" data-id="${esc(id)}"
+        title="${esc(etiqueta)}" aria-label="${esc(etiqueta)}"
+        class="inline-flex h-8 w-8 items-center justify-center rounded-lg transition ${color}">
+        <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+          ${ICONOS_ACCION[accion]}
+        </svg>
+      </button>`;
+  }
+
   function botonesFila(fila) {
     if (!vista.puede.editar && !vista.puede.eliminar && !vista.puede.reiniciar_clave) return '';
 
     const activo = fila.status === 'ACTIVE';
+    const neutro = 'text-muted-foreground hover:bg-muted hover:text-foreground';
     const partes = [];
 
     if (vista.puede.editar) {
-      partes.push(`<button type="button" data-accion="editar" data-id="${esc(fila.id)}"
-        class="rounded-lg px-2 py-1 text-xs font-medium text-primary transition hover:bg-primary/10">
-        Editar</button>`);
+      partes.push(iconoAccion('editar', 'Editar', fila.id, 'text-primary hover:bg-primary/10'));
     }
     if (vista.puede.reiniciar_clave) {
-      partes.push(`<button type="button" data-accion="clave" data-id="${esc(fila.id)}"
-        class="rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">
-        Contraseña</button>`);
+      partes.push(iconoAccion('clave', 'Reiniciar contraseña', fila.id, neutro));
     }
     if (vista.puede.activar && fila.status) {
-      partes.push(`<button type="button" data-accion="${activo ? 'inactivar' : 'activar'}" data-id="${esc(fila.id)}"
-        class="rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">
-        ${activo ? 'Inactivar' : 'Activar'}</button>`);
+      partes.push(
+        iconoAccion(
+          activo ? 'inactivar' : 'activar',
+          activo ? 'Inactivar' : 'Activar',
+          fila.id,
+          activo ? neutro : 'text-emerald-600 hover:bg-success/10',
+        ),
+      );
     }
     if (vista.puede.eliminar) {
-      partes.push(`<button type="button" data-accion="eliminar" data-id="${esc(fila.id)}"
-        class="rounded-lg px-2 py-1 text-xs font-medium text-destructive transition hover:bg-destructive/10">
-        Eliminar</button>`);
+      partes.push(
+        iconoAccion('eliminar', 'Eliminar', fila.id, 'text-destructive hover:bg-destructive/10'),
+      );
     }
-    return `<td class="whitespace-nowrap px-4 py-3 text-right">${partes.join('')}</td>`;
+
+    return `<td class="whitespace-nowrap px-4 py-3">
+        <div class="flex items-center justify-end gap-0.5">${partes.join('')}</div>
+      </td>`;
   }
 
   function pintar(elementos) {
@@ -441,7 +482,9 @@
       Interfaz.aviso('Cambio aplicado', 'exito');
       cargar();
     } catch (error) {
-      Interfaz.aviso(error.mensaje, 'error');
+      // Cuando una regla del sistema impide la acción, el motivo es lo
+      // importante: se muestra más tiempo para que dé tiempo a leerlo.
+      Interfaz.aviso(error.mensaje, 'error', error.codigo === 400 ? 8000 : 5000);
     }
   });
 

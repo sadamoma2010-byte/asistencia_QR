@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Deja el proyecto funcionando sobre PostgreSQL, con los datos migrados.
+    Deja la base de datos PostgreSQL creada y conectada.
 
 .DESCRIPTION
     Hace todo el proceso de una vez:
@@ -9,9 +9,7 @@
       2. Comprueba la conexión
       3. Crea la base de datos si no existe
       4. Ejecuta database.sql para levantar toda la estructura
-      5. Escribe DATABASE_URL en backend/.env
-      6. Traspasa los datos de la base SQLite anterior
-      7. Verifica que todo cuadre
+      5. Escribe DATABASE_URL en el archivo .env
 
     Si el paso de conexión falla, no toca nada más.
 
@@ -20,9 +18,6 @@
 
 .PARAMETER BaseDatos
     Nombre de la base. Por defecto 'asistencia_qr'.
-
-.PARAMETER SinMigrarDatos
-    Crea la estructura pero no traspasa los datos de SQLite.
 
 .EXAMPLE
     .\scripts\configurar-postgres.ps1
@@ -33,8 +28,7 @@ param(
   [string]$Usuario = 'postgres',
   [string]$BaseDatos = 'asistencia_qr',
   [string]$Servidor = 'localhost',
-  [int]$Puerto = 5432,
-  [switch]$SinMigrarDatos
+  [int]$Puerto = 5432
 )
 
 $ErrorActionPreference = 'Continue'
@@ -112,8 +106,7 @@ try {
       Alto "La base '$BaseDatos' ya contiene $tablas tabla(s)."
       Nota 'Para reconstruirla desde cero, primero eliminela:'
       Nota "  dropdb -U $Usuario $BaseDatos"
-      Nota 'Si solo quiere migrar los datos a la estructura existente, ejecute:'
-      Nota '  npm --prefix backend run db:migrar-datos'
+      Nota 'y despues vuelva a ejecutar este guion.'
       Write-Host ''
       exit 1
     }
@@ -142,13 +135,13 @@ try {
   Bien "estructura creada: $($t.Trim()) tablas, $($v.Trim()) vistas"
 
   # ── 4. Cadena de conexion en .env ──────────────────────────────
-  Paso 'Escribiendo la conexion en backend/.env'
+  Paso 'Escribiendo la conexion en .env'
   Add-Type -AssemblyName System.Web
   $usuarioEnc = [System.Web.HttpUtility]::UrlEncode($Usuario)
   $claveEnc   = [System.Web.HttpUtility]::UrlEncode($plana)
   $url = "postgresql://${usuarioEnc}:${claveEnc}@${Servidor}:${Puerto}/${BaseDatos}?schema=public"
 
-  $envFile = Join-Path $raiz 'backend\.env'
+  $envFile = Join-Path $raiz '.env'
   $contenido = if (Test-Path $envFile) { [System.IO.File]::ReadAllText($envFile) } else { '' }
 
   if ($contenido -match '(?m)^DATABASE_URL=') {
@@ -157,47 +150,9 @@ try {
     $contenido = "DATABASE_URL=$url`r`n" + $contenido
   }
 
-  # Ruta a la base SQLite de origen, que necesita el traspaso de datos
-  $sqliteUrl = 'SQLITE_URL=file:./data/app.db'
-  if ($contenido -match '(?m)^SQLITE_URL=') {
-    $contenido = [regex]::Replace($contenido, '(?m)^SQLITE_URL=.*$', $sqliteUrl)
-  } else {
-    $contenido = $contenido.TrimEnd() + "`r`n`r`n# Base anterior, solo para el traspaso de datos`r`n$sqliteUrl`r`n"
-  }
-
   [System.IO.File]::WriteAllText($envFile, $contenido, (New-Object System.Text.UTF8Encoding($false)))
-  Bien 'backend/.env actualizado'
+  Bien '.env actualizado'
   Nota 'La contrasena queda solo en ese archivo, excluido del repositorio.'
-
-  # ── 5. Cliente de Prisma ───────────────────────────────────────
-  Paso 'Generando el cliente de Prisma'
-  Push-Location (Join-Path $raiz 'backend')
-  & npx prisma generate 2>&1 | Out-Null
-  Pop-Location
-  Bien 'cliente generado'
-
-  # ── 6. Traspaso de datos ───────────────────────────────────────
-  $bd = Join-Path $raiz 'backend\prisma\data\app.db'
-
-  if ($SinMigrarDatos) {
-    Nota 'Se omite el traspaso de datos por peticion.'
-  } elseif (-not (Test-Path $bd)) {
-    Nota 'No hay base SQLite anterior: no hay datos que traspasar.'
-  } else {
-    Write-Host ''
-    Paso 'Traspasando los datos de la base anterior'
-    Push-Location (Join-Path $raiz 'backend')
-    & npx prisma generate --schema prisma/schema.sqlite.prisma 2>&1 | Out-Null
-    & npm run db:migrar-datos
-    $resultado = $LASTEXITCODE
-    Pop-Location
-
-    if ($resultado -ne 0) {
-      Write-Host ''
-      Alto 'El traspaso de datos no se completo. La estructura si quedo creada.'
-      exit 1
-    }
-  }
 
   # ── Resumen ────────────────────────────────────────────────────
   Write-Host ''
@@ -207,8 +162,7 @@ try {
   Nota 'Acceso        : admin@datly.local / Admin123*'
   Write-Host ''
   Nota 'Arranque:'
-  Nota '  npm --prefix backend run start:dev'
-  Nota '  npm --prefix frontend run dev'
+  Nota '  INICIAR-APLICACION.bat'
   Write-Host ''
 }
 finally {

@@ -19,9 +19,11 @@ genera reportes exportables a Excel y mantiene auditoría completa de todas las 
 | Autorización | RBAC (roles + permisos granulares) |
 | Informes | openpyxl (Excel), segno (códigos QR), Pillow (fotografías) |
 
-> La versión en TypeScript (NestJS + Next.js) se conserva en `backend/` y
-> `frontend/`. Sirve de referencia y es contra la que se contrastan las
-> respuestas de la versión Python. Ver [`MIGRACION-A-PYTHON.md`](MIGRACION-A-PYTHON.md).
+> El sistema estuvo escrito en TypeScript (NestJS + Next.js) hasta la versión
+> 2.1.1. La reescritura se verificó respuesta a respuesta contra aquella
+> versión antes de retirarla; el detalle está en
+> [`MIGRACION-A-PYTHON.md`](MIGRACION-A-PYTHON.md). Si hiciera falta
+> consultarla, sigue en el historial: `git checkout v2.1.1`.
 
 ---
 
@@ -43,9 +45,10 @@ ASISTENCIA_QR_2026_SENA/
 │   ├── plantillas/       15 pantallas en Jinja2
 │   └── estaticos/        CSS compilado y JavaScript propio
 ├── herramientas/         comprobaciones ejecutables
+├── scripts/              arranque, parada, base de datos y publicación
 ├── database.sql          estructura completa de la base
-├── backend/ frontend/    versión anterior en TypeScript (referencia)
-└── docker-compose.yml
+├── uploads/              fotografías de los docentes (fuera del repositorio)
+└── .env                  conexión y secretos (fuera del repositorio)
 ```
 
 Cada módulo conserva la separación que tenía en NestJS: `rutas.py` por
@@ -75,16 +78,11 @@ python -m venv .venv
 
 ### 2. Base de datos
 
-Un solo comando deja PostgreSQL listo: crea la base, ejecuta [`database.sql`](database.sql),
-escribe la conexión en `backend/.env` y traspasa los datos que hubiera de una instalación
-anterior.
-
-```powershell
-.\scripts\configurar-postgres.ps1
-```
+Doble clic en **`CONFIGURAR-BASE-DE-DATOS.bat`**. Crea la base, ejecuta
+[`database.sql`](database.sql) y escribe la conexión en `.env`.
 
 Pide la contraseña de PostgreSQL en la terminal. No queda escrita en el código: se guarda
-únicamente en `backend/.env`, que está excluido del repositorio.
+únicamente en `.env`, que está excluido del repositorio.
 
 <details>
 <summary>Hacerlo manualmente</summary>
@@ -94,7 +92,7 @@ createdb -U postgres asistencia_qr
 psql -U postgres -d asistencia_qr -f database.sql
 ```
 
-Luego escriba la conexión en `backend/.env`:
+Luego escriba la conexión en `.env`:
 
 ```
 DATABASE_URL=postgresql://usuario:contrasena@localhost:5432/asistencia_qr?schema=public
@@ -143,39 +141,28 @@ npm run estilos
 
 | Servicio | Dirección |
 |---|---|
-| Aplicación | http://localhost:3000 |
+| Aplicación | http://localhost:4000 |
 | API | http://localhost:4000/api/v1 |
-| Swagger | http://localhost:4000/api/docs |
 
-> Las dos ventanas que abre el arranque **son los servidores**. Si se cierran, la
+> La ventana que abre el arranque **es el servidor**. Si se cierra, la
 > aplicación deja de responder y el navegador mostrará que no puede conectar.
 
-### Con Docker
+---
 
-```bash
-cp .env.example .env
-docker compose up -d --build
-```
-
-Levanta PostgreSQL, la API y el frontend. Las migraciones y el seed se ejecutan solos.
-
-## Operaciones sobre la base de datos
-
-| Comando | Efecto |
-|---|---|
-| `npm --prefix backend run prisma:studio` | Explorar los datos en el navegador |
-| `npm --prefix backend run seed` | Reponer roles, permisos y datos iniciales |
-| `npm --prefix backend run db:migrar-datos` | Traspasar datos desde una base SQLite anterior |
-| `npm --prefix backend run db:verificar` | Comprobar tablas, vistas, funciones y restricciones |
-| `npm --prefix backend run db:pruebas` | Ciclo alta/consulta/modificación/baja contra la API |
-| `npm --prefix backend run db:reset` | Reconstruir la base desde cero (**borra todo**) |
-
-`db:pruebas` necesita el backend en marcha. Crea un registro de prueba, lo consulta,
-lo modifica, lo da de baja, comprueba que la auditoría anotó quién hizo cada paso y
-retira lo que creó.
+## Base de datos
 
 La estructura completa está documentada en [`BASE-DE-DATOS.md`](BASE-DE-DATOS.md), con el
-diagrama entidad-relación y la descripción de cada tabla.
+diagrama entidad-relación y la descripción de cada tabla. La fuente de verdad es
+[`database.sql`](database.sql): 13 tablas, 5 tipos enumerados, 50 índices, 2 vistas
+y 2 funciones.
+
+Para reconstruirla desde cero (**borra todo**):
+
+```bash
+dropdb -U postgres asistencia_qr
+```
+
+y a continuación `CONFIGURAR-BASE-DE-DATOS.bat`.
 
 ---
 
@@ -190,10 +177,6 @@ Todas se ejecutan contra la base real y retiran lo que crean.
 | `.venv\Scripts\python herramientas\probar_pantallas.py` | Que las 15 pantallas respondan con su contenido |
 | `.venv\Scripts\python herramientas\probar_reglas.py` | Las reglas de negocio RN001 a RN009 |
 | `.venv\Scripts\python herramientas\probar_crud.py` | Alta, edición, relaciones y baja en cada módulo |
-| `.venv\Scripts\python herramientas\comparar_api.py` | Que cada respuesta sea igual a la del sistema anterior |
-
-La última necesita el backend TypeScript en marcha (`npm --prefix backend run start:dev`).
-Llama a las dos aplicaciones y contrasta sus respuestas campo por campo.
 
 ---
 
@@ -222,28 +205,36 @@ Llama a las dos aplicaciones y contrasta sus respuestas campo por campo.
 
 ## Reglas de negocio implementadas
 
-| Código | Regla | Implementación |
+Todas viven en `aplicacion/modulos/asistencia/servicio.py` y se comprueban con
+`herramientas/probar_reglas.py`.
+
+| Código | Regla | Función |
 |---|---|---|
-| RN001 | Usuario activo puede registrar | `AttendanceService.register()` |
-| RN002 | Usuario inactivo no puede registrar | `AttendanceService.register()` |
-| RN003 | Horario obligatorio | `AttendanceService.resolveSchedule()` |
-| RN004 | No doble entrada consecutiva | `AttendanceService.register()` |
-| RN005 | No doble salida consecutiva | `AttendanceService.register()` |
-| RN006 | No salida sin entrada | `AttendanceService.register()` |
-| RN007 | Supera tolerancia = `TARDE` | `AttendanceService.evaluatePunctuality()` |
-| RN008 | Dentro de horario = `PUNTUAL` | `AttendanceService.evaluatePunctuality()` |
-| RN009 | Toda acción genera auditoría | `AuditInterceptor` + `AuditService` |
+| RN001 | El docente debe existir | `registrar()` |
+| RN002 | Docente o cuenta inactivos no pueden marcar | `registrar()` |
+| RN003 | Debe existir un horario aplicable | `_resolver_horario()` |
+| RN004 | No se admiten dos entradas seguidas | `_validar_secuencia()` |
+| RN005 | No se admiten dos salidas seguidas | `_validar_secuencia()` |
+| RN006 | No hay salida sin entrada previa | `_validar_secuencia()` |
+| RN007 | Supera la tolerancia = `TARDE` | `_evaluar_puntualidad()` |
+| RN008 | Dentro de la tolerancia = `PUNTUAL` | `_evaluar_puntualidad()` |
+| RN009 | Toda acción queda auditada | `comun/auditoria.py` |
 
 ---
 
 ## Seguridad
 
-- JWT de acceso (15 min) + Refresh Token rotativo persistido y hasheado (7 días).
-- `bcrypt` (12 rounds) para contraseñas.
+- Token de acceso (15 min) y token de refresco rotativo (7 días), guardado con su
+  huella SHA-256 y revocado al usarse.
+- `bcrypt` con 12 rondas para las contraseñas.
 - RBAC con permisos granulares por módulo (`users.create`, `attendance.read`, …).
-- Guards globales: `JwtAuthGuard` + `PermissionsGuard`.
-- Validación estricta de DTOs (`whitelist`, `forbidNonWhitelisted`).
-- Rate limit específico en login (5 intentos / minuto) y bloqueo temporal de cuenta.
+- Doble barrera en las acciones reservadas: `@requiere_permisos` y `@requiere_roles`.
+  El SUPER_ADMIN supera la primera automáticamente, la segunda no.
+- Validación estricta de la entrada: un campo no declarado hace que la petición se
+  rechace, no que se ignore.
+- Límite de intentos de acceso (5 por minuto) y bloqueo temporal de la cuenta.
+- Cookie de sesión `HttpOnly` y `SameSite=Lax`, para que un sitio ajeno no pueda
+  provocar peticiones autenticadas desde el navegador.
 - Sanitización de entradas y `helmet` en la capa HTTP.
 - Soft delete obligatorio en todas las entidades.
 
@@ -257,8 +248,8 @@ Ningún dato de conexión vive en el código. Todo se lee de variables de entorn
 | `JWT_ACCESS_SECRET` | Clave de firma del token de acceso |
 | `JWT_REFRESH_SECRET` | Clave de firma del token de renovación |
 
-Se definen en `backend/.env`, excluido del repositorio por `.gitignore`. La plantilla
-`backend/.env.example` sí está versionada, con valores de ejemplo sin ningún secreto real.
+Se definen en `.env`, excluido del repositorio por `.gitignore`. La plantilla
+`.env.example` sí está versionada, con valores de ejemplo sin ningún secreto real.
 
 Para producción, cambie ambos secretos JWT: los valores de la plantilla son públicos.
 
