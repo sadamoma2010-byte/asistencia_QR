@@ -189,6 +189,7 @@ Todas se ejecutan contra la base real y retiran lo que crean.
 | `.venv\Scripts\python herramientas\probar_auth.py` | Sesión, tokens, rotación y bloqueo por intentos |
 | `.venv\Scripts\python herramientas\probar_pantallas.py` | Que las 15 pantallas respondan con su contenido |
 | `.venv\Scripts\python herramientas\probar_reglas.py` | Las reglas de negocio RN001 a RN009 |
+| `.venv\Scripts\python herramientas\probar_crud.py` | Alta, edición, relaciones y baja en cada módulo |
 | `.venv\Scripts\python herramientas\comparar_api.py` | Que cada respuesta sea igual a la del sistema anterior |
 
 La última necesita el backend TypeScript en marcha (`npm --prefix backend run start:dev`).

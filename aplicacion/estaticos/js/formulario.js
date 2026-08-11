@@ -1,0 +1,656 @@
+/**
+ * Diálogo de alta y edición.
+ *
+ * Sustituye a los formularios en React Hook Form + Zod del proyecto original.
+ * Se construye a partir de la definición que envía el servidor, valida en el
+ * navegador antes de enviar y reparte sobre sus campos los errores que
+ * devuelve la API.
+ */
+const Formulario = (() => {
+
+  const esc = Interfaz.escapar;
+
+  const ANCHOS = {
+    completo: 'sm:col-span-6',
+    mitad: 'sm:col-span-3',
+    tercio: 'sm:col-span-2',
+  };
+
+  const CLASE_CAMPO =
+    'h-11 w-full rounded-lg border border-input bg-card px-3 text-sm text-foreground ' +
+    'transition placeholder:text-muted-foreground/60 ' +
+    'focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30';
+
+  // ── Construcción de cada tipo de campo ──────────────────────────
+
+  function control(definicion, valor) {
+    const { campo, tipo } = definicion;
+    const v = valor ?? definicion.defecto ?? '';
+
+    switch (tipo) {
+      case 'parrafo':
+        return `<textarea name="${campo}" rows="3"
+                  class="${CLASE_CAMPO.replace('h-11', 'min-h-[84px] py-2')}">${esc(v)}</textarea>`;
+
+      case 'numero':
+        return `<input type="number" name="${campo}" value="${esc(v)}"
+                  ${definicion.minimo != null ? `min="${definicion.minimo}"` : ''}
+                  ${definicion.maximo != null ? `max="${definicion.maximo}"` : ''}
+                  class="${CLASE_CAMPO}">`;
+
+      case 'hora':
+        return `<input type="time" name="${campo}" value="${esc(v)}" class="${CLASE_CAMPO}">`;
+
+      case 'correo':
+        return `<input type="email" name="${campo}" value="${esc(v)}"
+                  placeholder="usuario@institucion.edu.co" class="${CLASE_CAMPO}">`;
+
+      case 'telefono':
+        return `<input type="tel" name="${campo}" value="${esc(v)}" class="${CLASE_CAMPO}">`;
+
+      case 'clave':
+        return `<div class="relative">
+            <input type="password" name="${campo}" autocomplete="new-password"
+                   class="${CLASE_CAMPO} pr-11">
+            <button type="button" data-ver-clave
+                    class="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground
+                           transition hover:text-foreground" aria-label="Mostrar contraseña">
+              <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+                <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"
+                      stroke="currentColor" stroke-width="1.6"/>
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>
+              </svg>
+            </button>
+          </div>`;
+
+      case 'color':
+        return `<div class="flex items-center gap-2">
+            <input type="color" name="${campo}" value="${esc(v || '#4F46E5')}"
+                   class="h-11 w-14 cursor-pointer rounded-lg border border-input bg-card p-1">
+            <input type="text" data-espejo="${campo}" value="${esc(v || '#4F46E5')}"
+                   class="${CLASE_CAMPO}">
+          </div>`;
+
+      case 'casilla':
+        return `<label class="flex items-center gap-2.5">
+            <input type="checkbox" name="${campo}" ${v ? 'checked' : ''}
+                   class="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring/40">
+            <span class="text-sm text-foreground">${esc(definicion.etiqueta)}</span>
+          </label>`;
+
+      case 'opciones':
+        return `<select name="${campo}" class="${CLASE_CAMPO}">
+            ${definicion.opciones
+              .map(
+                ([valorOpcion, texto]) =>
+                  `<option value="${esc(valorOpcion)}" ${
+                    String(v) === String(valorOpcion) ? 'selected' : ''
+                  }>${esc(texto)}</option>`,
+              )
+              .join('')}
+          </select>`;
+
+      case 'catalogo':
+        return `<select name="${campo}" data-catalogo="${definicion.recurso}"
+                  data-elegido="${esc(v)}"
+                  ${definicion.depende_de ? `data-depende="${definicion.depende_de}" data-parametro="${definicion.parametro}"` : ''}
+                  class="${CLASE_CAMPO}">
+            <option value="">${esc(definicion.vacio || 'Seleccione…')}</option>
+          </select>`;
+
+      case 'multiple':
+        return `<div data-multiple="${campo}" data-recurso="${definicion.recurso}"
+                     class="max-h-52 space-y-1.5 overflow-y-auto rounded-lg border border-input bg-card p-3">
+            <p class="text-sm text-muted-foreground">Cargando…</p>
+          </div>`;
+
+      case 'permisos':
+        return `<div data-permisos="${campo}"
+                     class="max-h-72 space-y-3 overflow-y-auto rounded-lg border border-input bg-card p-3">
+            <p class="text-sm text-muted-foreground">Cargando…</p>
+          </div>`;
+
+      default:
+        return `<input type="text" name="${campo}" value="${esc(v)}" class="${CLASE_CAMPO}">`;
+    }
+  }
+
+  function bloque(definicion, registro) {
+    if (definicion.tipo === 'casilla') {
+      return `<div class="${ANCHOS[definicion.ancho] || ANCHOS.completo}">
+          ${control(definicion, registro?.[definicion.campo])}
+          ${definicion.ayuda ? `<p class="mt-1 text-xs text-muted-foreground">${esc(definicion.ayuda)}</p>` : ''}
+          <p class="hidden text-xs text-destructive" data-error="${definicion.campo}"></p>
+        </div>`;
+    }
+
+    return `<div class="${ANCHOS[definicion.ancho] || ANCHOS.completo}">
+        <label class="mb-1.5 block text-sm font-medium text-foreground">
+          ${esc(definicion.etiqueta)}
+          ${definicion.obligatorio ? '<span class="text-destructive">*</span>' : ''}
+        </label>
+        ${control(definicion, registro?.[definicion.campo])}
+        ${definicion.ayuda ? `<p class="mt-1 text-xs text-muted-foreground">${esc(definicion.ayuda)}</p>` : ''}
+        <p class="hidden text-xs text-destructive" data-error="${definicion.campo}"></p>
+      </div>`;
+  }
+
+  // ── Carga de catálogos y listas ─────────────────────────────────
+
+  const nombreDe = (opcion) =>
+    opcion.name ||
+    opcion.fullName ||
+    `${opcion.firstName || ''} ${opcion.lastName || ''}`.trim() ||
+    opcion.code ||
+    opcion.id;
+
+  async function llenarCatalogo(select) {
+    const parametros = new URLSearchParams();
+    if (select.dataset.depende) {
+      const padre = select.form.querySelector(`[name="${select.dataset.depende}"]`);
+      if (!padre || !padre.value) {
+        // Sin el campo del que depende, el catálogo no tiene sentido todavía
+        select.innerHTML = `<option value="">Elija primero ${select.dataset.depende === 'teacherId' ? 'el docente' : 'el campo anterior'}</option>`;
+        select.disabled = true;
+        return;
+      }
+      parametros.set(select.dataset.parametro, padre.value);
+    }
+
+    select.disabled = false;
+    const elegido = select.dataset.elegido;
+    const recurso = select.dataset.catalogo;
+
+    try {
+      let opciones;
+      try {
+        opciones = await Api.get(
+          `/${recurso}/options${parametros.toString() ? '?' + parametros : ''}`,
+        );
+      } catch (sinCatalogo) {
+        // No todos los módulos ofrecen `/options`: usuarios, por ejemplo, solo
+        // expone el listado paginado, y ahí «options» se interpreta como un
+        // identificador. Se recurre al listado con un tope amplio.
+        if (![400, 404].includes(sinCatalogo.codigo)) throw sinCatalogo;
+        parametros.set('limit', '100');
+        parametros.set('status', 'ACTIVE');
+        const pagina = await Api.get(`/${recurso}?${parametros}`);
+        opciones = pagina.items || [];
+      }
+
+      const primera = select.querySelector('option');
+      select.innerHTML = '';
+      if (primera) select.appendChild(primera);
+
+      (opciones || []).forEach((opcion) => {
+        const nodo = document.createElement('option');
+        nodo.value = opcion.id;
+        nodo.textContent = opcion.code
+          ? `${opcion.code} · ${nombreDe(opcion)}`
+          : opcion.email
+            ? `${nombreDe(opcion)} · ${opcion.email}`
+            : nombreDe(opcion);
+        if (opcion.id === elegido) nodo.selected = true;
+        select.appendChild(nodo);
+      });
+    } catch (error) {
+      select.innerHTML = '<option value="">No fue posible cargar el catálogo</option>';
+    }
+  }
+
+  async function llenarMultiple(caja, elegidos) {
+    try {
+      const opciones = await Api.get(`/${caja.dataset.recurso}/options`);
+      if (!opciones || !opciones.length) {
+        caja.innerHTML = '<p class="text-sm text-muted-foreground">No hay opciones disponibles.</p>';
+        return;
+      }
+      caja.innerHTML = opciones
+        .map(
+          (opcion) => `
+          <label class="flex items-center gap-2.5 rounded-md px-1.5 py-1 transition hover:bg-muted/60">
+            <input type="checkbox" value="${esc(opcion.id)}"
+                   ${(elegidos || []).includes(opcion.id) ? 'checked' : ''}
+                   class="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring/40">
+            <span class="text-sm text-foreground">
+              ${opcion.color ? `<span class="mr-1 inline-block h-2 w-2 rounded-full align-middle" style="background:${esc(opcion.color)}"></span>` : ''}
+              ${esc(nombreDe(opcion))}
+              ${opcion.code ? `<span class="ml-1 text-xs text-muted-foreground">${esc(opcion.code)}</span>` : ''}
+            </span>
+          </label>`,
+        )
+        .join('');
+    } catch (error) {
+      caja.innerHTML = `<p class="text-sm text-destructive">${esc(error.mensaje)}</p>`;
+    }
+  }
+
+  async function llenarPermisos(caja, elegidos) {
+    try {
+      const grupos = await Api.get('/permissions/grouped');
+      caja.innerHTML = (grupos || [])
+        .map(
+          (grupo) => `
+          <div>
+            <div class="flex items-center justify-between gap-2 border-b border-border pb-1">
+              <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                ${esc(grupo.module)}
+              </p>
+              <button type="button" data-grupo="${esc(grupo.module)}"
+                      class="text-xs font-medium text-primary transition hover:underline">
+                Todos
+              </button>
+            </div>
+            <div class="mt-1.5 grid gap-1 sm:grid-cols-2" data-permisos-grupo="${esc(grupo.module)}">
+              ${grupo.permissions
+                .map(
+                  (permiso) => `
+                <label class="flex items-start gap-2 rounded-md px-1.5 py-1 transition hover:bg-muted/60">
+                  <input type="checkbox" value="${esc(permiso.id)}"
+                         ${(elegidos || []).includes(permiso.id) ? 'checked' : ''}
+                         class="mt-0.5 h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring/40">
+                  <span class="min-w-0">
+                    <span class="block truncate text-sm text-foreground">${esc(permiso.name)}</span>
+                    <code class="block truncate text-[11px] text-muted-foreground">${esc(permiso.code)}</code>
+                  </span>
+                </label>`,
+                )
+                .join('')}
+            </div>
+          </div>`,
+        )
+        .join('');
+
+      // «Todos» marca o desmarca el grupo entero
+      caja.querySelectorAll('[data-grupo]').forEach((boton) =>
+        boton.addEventListener('click', () => {
+          const casillas = caja.querySelectorAll(
+            `[data-permisos-grupo="${boton.dataset.grupo}"] input`,
+          );
+          const faltaAlguna = [...casillas].some((c) => !c.checked);
+          casillas.forEach((c) => (c.checked = faltaAlguna));
+        }),
+      );
+    } catch (error) {
+      caja.innerHTML = `<p class="text-sm text-destructive">${esc(error.mensaje)}</p>`;
+    }
+  }
+
+  // ── Lectura de los valores ──────────────────────────────────────
+
+  function leer(formulario, definicion, esEdicion) {
+    const cuerpo = {};
+    const relaciones = [];
+
+    definicion.campos.forEach((d) => {
+      if (d.solo_crear && esEdicion) return;
+      if (d.solo_editar && !esEdicion) return;
+
+      // Las relaciones viajan a su propio punto de la API
+      if (d.relacion) {
+        const caja = formulario.querySelector(
+          `[data-multiple="${d.campo}"], [data-permisos="${d.campo}"]`,
+        );
+        if (caja) {
+          const valores = [...caja.querySelectorAll('input:checked')].map((c) => c.value);
+          relaciones.push({ ruta: d.relacion, clave: d.clave_relacion, valores });
+        }
+        return;
+      }
+
+      const control = formulario.querySelector(`[name="${d.campo}"]`);
+      if (!control) return;
+
+      if (d.tipo === 'casilla') {
+        cuerpo[d.campo] = control.checked;
+        return;
+      }
+
+      const bruto = control.value.trim();
+
+      if (bruto === '') {
+        // Al crear se omite; al editar se envía vacío para poder borrarlo
+        if (esEdicion && !d.obligatorio) cuerpo[d.campo] = null;
+        return;
+      }
+
+      if (d.tipo === 'numero') {
+        cuerpo[d.campo] = Number(bruto);
+      } else if (d.campo === 'dayOfWeek') {
+        cuerpo[d.campo] = Number(bruto);
+      } else {
+        cuerpo[d.campo] = bruto;
+      }
+    });
+
+    return { cuerpo, relaciones };
+  }
+
+  function validar(formulario, definicion, esEdicion) {
+    Interfaz.limpiarErrores(formulario);
+    let valido = true;
+
+    definicion.campos.forEach((d) => {
+      if (!d.obligatorio) return;
+      if (d.solo_crear && esEdicion) return;
+      if (d.solo_editar && !esEdicion) return;
+
+      const control = formulario.querySelector(`[name="${d.campo}"]`);
+      if (!control || control.value.trim() !== '') return;
+
+      const destino = formulario.querySelector(`[data-error="${d.campo}"]`);
+      if (destino) {
+        destino.textContent = 'Este campo es obligatorio';
+        destino.classList.remove('hidden');
+      }
+      control.setAttribute('aria-invalid', 'true');
+      control.classList.add('border-destructive');
+      valido = false;
+    });
+
+    return valido;
+  }
+
+  // ── Diálogo ─────────────────────────────────────────────────────
+
+  function cerrar() {
+    const nodo = document.getElementById('dialogo-formulario');
+    if (nodo) nodo.remove();
+  }
+
+  /**
+   * Abre el formulario. Sin `registro` es un alta; con él, una edición.
+   * Devuelve una promesa que resuelve a true si se guardó.
+   */
+  async function abrir(definicion, registro = null) {
+    const esEdicion = Boolean(registro);
+    const articulo = definicion.genero === 'la' ? 'Nueva' : 'Nuevo';
+    const titulo = definicion.titulo
+      ? definicion.titulo
+      : esEdicion
+        ? `Editar ${definicion.singular}`
+        : `${articulo} ${definicion.singular}`;
+
+    cerrar();
+
+    const nodo = document.createElement('div');
+    nodo.id = 'dialogo-formulario';
+    nodo.className =
+      'fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-sm';
+    nodo.setAttribute('role', 'dialog');
+    nodo.setAttribute('aria-modal', 'true');
+
+    nodo.innerHTML = `
+      <div class="glass-card my-8 w-full max-w-2xl rounded-xl animate-slide-up">
+        <div class="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
+          <h2 class="text-lg font-semibold text-foreground">${esc(titulo)}</h2>
+          <button type="button" data-cerrar
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground
+                         transition hover:bg-muted hover:text-foreground" aria-label="Cerrar">
+            <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <form id="campos-formulario" class="px-6 py-5" novalidate>
+          ${definicion.foto && esEdicion ? bloqueFoto(registro) : ''}
+          <div class="grid gap-4 sm:grid-cols-6">
+            ${definicion.campos
+              .filter((d) => !(d.solo_crear && esEdicion) && !(d.solo_editar && !esEdicion))
+              .map((d) => bloque(d, registro))
+              .join('')}
+          </div>
+        </form>
+
+        <div class="flex flex-col-reverse gap-2 border-t border-border px-6 py-4 sm:flex-row sm:justify-end">
+          <button type="button" data-cerrar
+                  class="inline-flex h-10 items-center justify-center rounded-lg border border-border
+                         bg-card px-4 text-sm font-medium text-foreground transition hover:bg-muted">
+            Cancelar
+          </button>
+          <button type="button" data-guardar
+                  class="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5
+                         text-sm font-semibold text-primary-foreground shadow-glow transition
+                         hover:bg-primary-hover disabled:opacity-70">
+            <span data-texto>${esEdicion ? 'Guardar cambios' : 'Crear'}</span>
+          </button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(nodo);
+    const formulario = nodo.querySelector('#campos-formulario');
+
+    // ── Rellenar catálogos y listas ────────────────────────────────
+    formulario.querySelectorAll('[data-catalogo]').forEach((select) => {
+      llenarCatalogo(select);
+      // Un catálogo que depende de otro se recarga al cambiar el padre
+      if (select.dataset.depende) {
+        const padre = formulario.querySelector(`[name="${select.dataset.depende}"]`);
+        if (padre) {
+          padre.addEventListener('change', () => {
+            select.dataset.elegido = '';
+            llenarCatalogo(select);
+          });
+        }
+      }
+    });
+
+    for (const caja of formulario.querySelectorAll('[data-multiple]')) {
+      const campo = caja.dataset.multiple;
+      const elegidos = (registro?.[campo] || registro?.[campo.replace('Ids', 's')] || []).map(
+        (x) => (typeof x === 'string' ? x : x.id),
+      );
+      llenarMultiple(caja, elegidos);
+    }
+
+    for (const caja of formulario.querySelectorAll('[data-permisos]')) {
+      llenarPermisos(caja, registro?.permissionIds || []);
+    }
+
+    // El campo de color y su texto se mantienen en sintonía
+    formulario.querySelectorAll('input[type="color"]').forEach((selector) => {
+      const espejo = formulario.querySelector(`[data-espejo="${selector.name}"]`);
+      if (!espejo) return;
+      selector.addEventListener('input', () => (espejo.value = selector.value));
+      espejo.addEventListener('change', () => {
+        if (/^#[0-9A-Fa-f]{6}$/.test(espejo.value.trim())) selector.value = espejo.value.trim();
+      });
+    });
+
+    // Código sugerido al dar de alta
+    if (!esEdicion && definicion.sugerir_codigo) {
+      const campoCodigo = formulario.querySelector('[name="code"]');
+      if (campoCodigo && !campoCodigo.value) {
+        Api.get(definicion.sugerir_codigo)
+          .then((datos) => {
+            if (datos && !campoCodigo.value) campoCodigo.value = datos.code;
+          })
+          .catch(() => {
+            /* si falla, el usuario escribe el código a mano */
+          });
+      }
+    }
+
+    // ── Cierre ─────────────────────────────────────────────────────
+    return new Promise((resolver) => {
+      const terminar = (guardado) => {
+        document.removeEventListener('keydown', alTeclado);
+        cerrar();
+        resolver(guardado);
+      };
+
+      const alTeclado = (e) => {
+        if (e.key === 'Escape') terminar(false);
+      };
+      document.addEventListener('keydown', alTeclado);
+
+      nodo.querySelectorAll('[data-cerrar]').forEach((boton) =>
+        boton.addEventListener('click', () => terminar(false)),
+      );
+      nodo.addEventListener('click', (e) => {
+        if (e.target === nodo) terminar(false);
+      });
+
+      // ── Guardar ──────────────────────────────────────────────────
+      const guardar = nodo.querySelector('[data-guardar]');
+      const texto = guardar.querySelector('[data-texto]');
+
+      guardar.addEventListener('click', async () => {
+        if (!validar(formulario, definicion, esEdicion)) {
+          Interfaz.aviso('Revise los campos marcados', 'aviso');
+          return;
+        }
+
+        const { cuerpo, relaciones } = leer(formulario, definicion, esEdicion);
+
+        guardar.disabled = true;
+        texto.textContent = 'Guardando…';
+
+        try {
+          let resultado;
+
+          if (definicion.envio) {
+            // Punto de la API propio, como el reinicio de contraseña
+            resultado = await Api[definicion.envio.metodo.toLowerCase()](
+              definicion.envio.ruta,
+              cuerpo,
+            );
+          } else if (esEdicion) {
+            resultado = await Api.patch(`/${definicion.recurso}/${registro.id}`, cuerpo);
+          } else {
+            resultado = await Api.post(`/${definicion.recurso}`, cuerpo);
+          }
+
+          // Las relaciones se envían después, ya con el identificador
+          const id = esEdicion ? registro.id : resultado?.id;
+          if (id) {
+            for (const relacion of relaciones) {
+              await Api.patch(relacion.ruta.replace('{id}', id), {
+                [relacion.clave]: relacion.valores,
+              });
+            }
+          }
+
+          Interfaz.aviso(
+            definicion.envio
+              ? resultado?.message || 'Listo'
+              : esEdicion
+                ? 'Cambios guardados'
+                : `${definicion.singular} creado correctamente`,
+            'exito',
+          );
+          terminar(true);
+        } catch (error) {
+          Interfaz.mostrarErrores(formulario, error);
+          Interfaz.aviso(error.mensaje, 'error', 6000);
+          guardar.disabled = false;
+          texto.textContent = esEdicion ? 'Guardar cambios' : 'Crear';
+        }
+      });
+
+      formulario.addEventListener('keydown', (e) => {
+        // Enter envía, salvo dentro de un área de texto
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          guardar.click();
+        }
+      });
+
+      const primero = formulario.querySelector('input:not([type="hidden"]), select, textarea');
+      if (primero) primero.focus();
+    });
+  }
+
+  // ── Fotografía del docente ──────────────────────────────────────
+
+  function bloqueFoto(registro) {
+    const iniciales = (
+      (registro.firstName || '?')[0] + (registro.lastName || '')[0] || ''
+    ).toUpperCase();
+
+    return `
+      <div class="mb-5 flex items-center gap-4 rounded-lg border border-border bg-muted/40 p-4">
+        <div id="vista-foto" class="shrink-0">
+          ${
+            registro.photoUrl
+              ? `<img src="${esc(registro.photoUrl)}" alt=""
+                      class="h-16 w-16 rounded-full object-cover">`
+              : `<div class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10
+                             text-lg font-semibold text-primary">${esc(iniciales)}</div>`
+          }
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-medium text-foreground">Fotografía</p>
+          <p class="mt-0.5 text-xs text-muted-foreground">
+            JPG, PNG, WEBP o GIF, máximo 5 MB. Se recorta a 512 × 512.
+          </p>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <label class="inline-flex h-9 cursor-pointer items-center rounded-lg border border-border
+                          bg-card px-3 text-sm font-medium transition hover:bg-muted">
+              Cambiar
+              <input type="file" id="archivo-foto" accept="image/*" class="hidden">
+            </label>
+            ${
+              registro.photoUrl
+                ? `<button type="button" id="quitar-foto"
+                     class="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium
+                            text-destructive transition hover:bg-destructive/10">Quitar</button>`
+                : ''
+            }
+          </div>
+        </div>
+      </div>`;
+  }
+
+  /** Conecta la subida de fotografía dentro de un formulario ya abierto. */
+  function conectarFoto(recurso, id, alCambiar) {
+    const archivo = document.getElementById('archivo-foto');
+    const quitar = document.getElementById('quitar-foto');
+    const vista = document.getElementById('vista-foto');
+    if (!archivo) return;
+
+    archivo.addEventListener('change', async () => {
+      const fichero = archivo.files[0];
+      if (!fichero) return;
+
+      if (fichero.size > 5 * 1024 * 1024) {
+        Interfaz.aviso('La imagen supera los 5 MB', 'error');
+        archivo.value = '';
+        return;
+      }
+
+      const datos = new FormData();
+      datos.append('file', fichero);
+
+      try {
+        const actualizado = await Api.subir(`/${recurso}/${id}/photo`, datos);
+        vista.innerHTML = `<img src="${actualizado.photoUrl}?t=${Date.now()}" alt=""
+                                class="h-16 w-16 rounded-full object-cover">`;
+        Interfaz.aviso('Fotografía actualizada', 'exito');
+        if (alCambiar) alCambiar();
+      } catch (error) {
+        Interfaz.aviso(error.mensaje, 'error');
+      } finally {
+        archivo.value = '';
+      }
+    });
+
+    if (quitar) {
+      quitar.addEventListener('click', async () => {
+        try {
+          await Api.delete(`/${recurso}/${id}/photo`);
+          vista.innerHTML =
+            '<div class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">—</div>';
+          quitar.remove();
+          Interfaz.aviso('Fotografía retirada', 'exito');
+          if (alCambiar) alCambiar();
+        } catch (error) {
+          Interfaz.aviso(error.mensaje, 'error');
+        }
+      });
+    }
+  }
+
+  return { abrir, conectarFoto };
+})();

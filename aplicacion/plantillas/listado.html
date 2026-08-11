@@ -33,8 +33,19 @@
           <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
             <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
           </svg>
-          Nuevo {{ vista.singular }}
+          {{ 'Nueva' if vista.formulario.genero == 'la' else 'Nuevo' }} {{ vista.singular }}
         </button>
+      {% endif %}
+
+      {% if vista.nombre == 'asistencia' and permisos.marcar %}
+        <a href="/marcar"
+           class="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm
+                  font-semibold text-primary-foreground shadow-glow transition hover:bg-primary-hover">
+          <svg viewBox="0 0 24 24" fill="none" class="h-4 w-4" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+          </svg>
+          Registrar marcación
+        </a>
       {% endif %}
     </div>
   </div>
@@ -190,5 +201,6 @@
 
 {% block guiones_pagina %}
 <script id="definicion-vista" type="application/json">{{ vista | tojson }}</script>
+<script src="{{ url_for('static', filename='js/formulario.js') }}"></script>
 <script src="{{ url_for('static', filename='js/listado.js') }}"></script>
 {% endblock %}

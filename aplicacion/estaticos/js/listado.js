@@ -217,11 +217,21 @@
   // ── Pintado ─────────────────────────────────────────────────────
 
   function botonesFila(fila) {
-    if (!vista.puede.editar && !vista.puede.eliminar) return '';
+    if (!vista.puede.editar && !vista.puede.eliminar && !vista.puede.reiniciar_clave) return '';
 
     const activo = fila.status === 'ACTIVE';
     const partes = [];
 
+    if (vista.puede.editar) {
+      partes.push(`<button type="button" data-accion="editar" data-id="${esc(fila.id)}"
+        class="rounded-lg px-2 py-1 text-xs font-medium text-primary transition hover:bg-primary/10">
+        Editar</button>`);
+    }
+    if (vista.puede.reiniciar_clave) {
+      partes.push(`<button type="button" data-accion="clave" data-id="${esc(fila.id)}"
+        class="rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">
+        Contraseña</button>`);
+    }
     if (vista.puede.activar && fila.status) {
       partes.push(`<button type="button" data-accion="${activo ? 'inactivar' : 'activar'}" data-id="${esc(fila.id)}"
         class="rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">
@@ -387,17 +397,38 @@
     }),
   );
 
-  // Activar, inactivar y eliminar
+  // Editar, contraseña, activar, inactivar y eliminar
   document.addEventListener('click', async (evento) => {
     const boton = evento.target.closest('[data-accion]');
     if (!boton) return;
 
     const { accion, id } = boton.dataset;
 
+    // ── Editar ────────────────────────────────────────────────────
+    if (accion === 'editar') {
+      try {
+        // Se pide el detalle: trae las relaciones que el listado no incluye
+        const registro = await Api.get(`/${vista.recurso}/${id}`);
+        const guardado = await Formulario.abrir(vista.formulario, registro);
+        Formulario.conectarFoto(vista.recurso, id, cargar);
+        if (guardado) cargar();
+      } catch (error) {
+        Interfaz.aviso(error.mensaje, 'error');
+      }
+      return;
+    }
+
+    // ── Reiniciar contraseña ──────────────────────────────────────
+    if (accion === 'clave') {
+      await reiniciarClave(id);
+      return;
+    }
+
+    // ── Eliminar ──────────────────────────────────────────────────
     if (accion === 'eliminar') {
       const confirmado = await Interfaz.confirmar({
         titulo: `Eliminar ${vista.singular}`,
-        texto: `Esta acción marca el registro como eliminado y queda constancia en la auditoría. ¿Desea continuar?`,
+        texto: 'Esta acción marca el registro como eliminado y queda constancia en la auditoría. ¿Desea continuar?',
         etiqueta: 'Eliminar',
       });
       if (!confirmado) return;
@@ -413,6 +444,31 @@
       Interfaz.aviso(error.mensaje, 'error');
     }
   });
+
+  /** Diálogo corto para asignar una contraseña nueva a un usuario. */
+  async function reiniciarClave(id) {
+    const definicion = {
+      recurso: 'users',
+      singular: 'contraseña',
+      campos: [
+        {
+          campo: 'newPassword',
+          etiqueta: 'Contraseña nueva',
+          tipo: 'clave',
+          obligatorio: true,
+          ancho: 'completo',
+          ayuda: 'Mínimo 8 caracteres, con mayúscula, minúscula y número. El usuario deberá cambiarla al entrar.',
+        },
+      ],
+    };
+
+    // Se reutiliza el diálogo, pero enviando al punto de reinicio
+    const nodo = await Formulario.abrir(
+      { ...definicion, envio: { ruta: `/users/${id}/reset-password`, metodo: 'PATCH' } },
+      null,
+    );
+    if (nodo) cargar();
+  }
 
   // Borrado múltiple de marcaciones
   const borrar = document.getElementById('borrar-seleccion');
@@ -441,12 +497,13 @@
 
   const nuevo = document.querySelector('[data-nuevo]');
   if (nuevo) {
-    nuevo.addEventListener('click', () =>
-      Interfaz.aviso(
-        `El alta de ${vista.singular} se realiza desde el formulario correspondiente.`,
-        'info',
-      ),
-    );
+    nuevo.addEventListener('click', async () => {
+      const guardado = await Formulario.abrir(vista.formulario, null);
+      if (guardado) {
+        pagina = 1;
+        cargar();
+      }
+    });
   }
 
   Interfaz.conectarFiltros(document.getElementById('filtros'));

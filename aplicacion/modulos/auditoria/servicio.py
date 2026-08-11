@@ -16,6 +16,7 @@ from ...comun.consultas import Paginacion, aplicar_busqueda, aplicar_orden, pagi
 from ...comun.errores import NoEncontrado
 from ...comun.respuestas import resultado_paginado
 from ...comun.tiempo import iso, rango_dias
+from ...comun.validaciones import exigir_identificador
 from ...extensiones import bd
 from ...modelos import AccionAuditoria, Auditoria
 
@@ -95,6 +96,7 @@ def listar() -> dict:
 
 
 def obtener(identificador: str) -> dict:
+    exigir_identificador(identificador)
     fila = bd.session.execute(
         select(Auditoria).where(
             Auditoria.id == identificador, Auditoria.deleted_at.is_(None)

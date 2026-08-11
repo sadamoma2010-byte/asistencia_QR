@@ -27,6 +27,7 @@ from .peticion import ContextoPeticion
 from .respuestas import resultado_paginado
 from .seguridad import UsuarioAutenticado
 from .tiempo import iso
+from .validaciones import exigir_identificador
 
 TOPE_EXPORTACION = 1000
 
@@ -95,6 +96,8 @@ class ServicioCRUD:
     @classmethod
     def buscar(cls, identificador: str) -> Any:
         """Fila vigente por identificador, o error 404."""
+        exigir_identificador(identificador)
+
         fila = bd.session.execute(
             cls.consulta_base().where(cls.modelo.id == identificador)
         ).unique().scalar_one_or_none()

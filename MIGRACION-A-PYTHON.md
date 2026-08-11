@@ -128,6 +128,7 @@ respaldada por una comprobación que puede volver a ejecutarse.
 | **Cada respuesta es igual a la del original** | `python herramientas/comparar_api.py` | **42 de 42** |
 | Las pantallas responden con su contenido | `python herramientas/probar_pantallas.py` | 15 de 15 |
 | Las reglas RN001–RN009 se comportan igual | `python herramientas/probar_reglas.py` | 9 de 9 |
+| Alta, edición y baja en cada módulo | `python herramientas/probar_crud.py` | 7 módulos |
 
 `comparar_api.py` es la comprobación central: levanta la aplicación Python,
 llama al backend TypeScript original y contrasta ambas respuestas campo por
@@ -163,6 +164,16 @@ tras cualquier baja era uno con sufijo (`DOC-0007.DEL.1786282119238`).
 `Number()` sobre eso da `NaN`, y la sugerencia caía siempre en `DOC-0001`.
 Pedir el código sugerido y usarlo devolvía «Ya existe un docente con ese
 código».
+
+**4 · Dos tokens emitidos en el mismo segundo salían idénticos.**
+Mismo usuario, mismo contenido y mismas marcas de tiempo producían la misma
+cadena, de modo que la rotación no podía distinguir el token revocado del
+recién emitido. Se añadió un identificador único (`jti`) a cada uno.
+
+Y un fallo que apareció solo en la versión Python, corregido antes de
+entregarla: un identificador con formato incorrecto en la dirección llegaba
+hasta PostgreSQL y devolvía un error 500 con el mensaje del motor. Ahora se
+valida antes y responde 400, como hacía `ParseUUIDPipe` en el original.
 
 Además se añadió un **desempate estable** en todos los listados. Sin él, dos
 filas con la misma clave de orden pueden intercambiarse entre consultas, y al

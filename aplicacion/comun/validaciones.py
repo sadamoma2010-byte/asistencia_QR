@@ -59,3 +59,23 @@ FechaTexto = Annotated[str, AfterValidator(_fecha)]
 
 # Identificador UUID en texto, tal como los devuelve la API
 Identificador = Annotated[str, Field(min_length=36, max_length=36)]
+
+PATRON_UUID = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+
+def exigir_identificador(valor: str) -> str:
+    """
+    Comprueba que el identificador de la dirección sea un UUID.
+
+    Sustituye a `ParseUUIDPipe`. Sin esta comprobación, un identificador con
+    otro formato llega hasta PostgreSQL, que rechaza la conversión y provoca un
+    error 500: la petición es inválida, no un fallo del servidor, y además ese
+    500 devolvía el mensaje del motor.
+    """
+    from .errores import SolicitudInvalida
+
+    if not PATRON_UUID.match(valor or ""):
+        raise SolicitudInvalida("El identificador indicado no es válido")
+    return valor

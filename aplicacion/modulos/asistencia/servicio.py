@@ -25,6 +25,7 @@ from ...comun.errores import Conflicto, NoEncontrado, Prohibido, SolicitudInvali
 from ...comun.peticion import ContextoPeticion
 from ...comun.respuestas import resultado_paginado
 from ...comun.seguridad import UsuarioAutenticado
+from ...comun.validaciones import exigir_identificador
 from ...comun.tiempo import (
     DIAS,
     ahora,
@@ -404,6 +405,7 @@ def listar() -> dict:
 
 
 def obtener(identificador: str) -> dict:
+    exigir_identificador(identificador)
     fila = bd.session.execute(
         select(Marcacion).where(
             Marcacion.id == identificador, Marcacion.deleted_at.is_(None)

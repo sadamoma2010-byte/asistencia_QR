@@ -254,16 +254,27 @@ DEFINICIONES: dict[str, dict] = {
 
 def construir(nombre: str) -> dict:
     """Definición de la pantalla, con las acciones que el usuario puede ejecutar."""
+    from . import formularios
+
     definicion = dict(DEFINICIONES[nombre])
     usuario = usuario_actual()
     permiso = definicion["permiso"]
 
     definicion["nombre"] = nombre
+    definicion["formulario"] = formularios.para(nombre)
+    # Sin formulario declarado no se ofrece alta ni edición: el botón llevaría
+    # a una pantalla que no existe.
+    tiene_formulario = definicion["formulario"] is not None
+
     definicion["puede"] = {
-        "crear": bool(usuario and usuario.tiene(f"{permiso}.create"))
+        "crear": tiene_formulario
+        and bool(usuario and usuario.tiene(f"{permiso}.create"))
         and not definicion.get("solo_lectura"),
-        "editar": bool(usuario and usuario.tiene(f"{permiso}.update"))
+        "editar": tiene_formulario
+        and bool(usuario and usuario.tiene(f"{permiso}.update"))
         and not definicion.get("solo_lectura"),
+        "reiniciar_clave": nombre == "usuarios"
+        and bool(usuario and usuario.tiene("users.reset-password")),
         "eliminar": bool(usuario and usuario.tiene(f"{permiso}.delete"))
         and not definicion.get("solo_lectura"),
         "activar": bool(usuario and usuario.tiene(f"{permiso}.activate"))
