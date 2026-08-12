@@ -112,7 +112,16 @@ DEFINICIONES: dict[str, dict] = {
         "permiso": "attendance",
         "ordenar": "registeredAt",
         "solo_lectura": True,
-        "seleccionable": True,
+        # Selección por casillas para el borrado múltiple, reservado al
+        # SUPER_ADMIN. Aquí se eliminan marcaciones concretas.
+        "borrado": {
+            "ruta": "/attendance/bulk-delete",
+            "campo": "ids",
+            "clave_fila": "id",
+            "titulo": "Eliminar marcaciones",
+            "unidad": "marcación",
+            "unidades": "marcaciones",
+        },
         "columnas": [
             _columna("teacher", "Docente", tipo="docente_anidado"),
             _columna("date", "Fecha", tipo="fecha", ordenable="date"),
@@ -142,6 +151,17 @@ DEFINICIONES: dict[str, dict] = {
         "permiso": "reports",
         "solo_lectura": True,
         "sin_ordenar": True,
+        # Aquí cada fila es un docente, no una marcación: al eliminar se borran
+        # todas sus marcaciones del periodo que muestren los filtros.
+        "borrado": {
+            "ruta": "/attendance/delete-by-teacher",
+            "campo": "teacherIds",
+            "clave_fila": "teacherId",
+            "titulo": "Eliminar marcaciones de los docentes seleccionados",
+            "unidad": "docente",
+            "unidades": "docentes",
+            "con_periodo": True,
+        },
         "exportaciones": [
             ("/reports/export", "Resumen"),
             ("/reports/export/detail", "Detalle"),
@@ -280,9 +300,11 @@ def construir(nombre: str) -> dict:
         "activar": bool(usuario and usuario.tiene(f"{permiso}.activate"))
         and not definicion.get("solo_lectura"),
         "exportar": bool(usuario and usuario.tiene(f"{permiso}.export")),
-        # El borrado múltiple de marcaciones está reservado al SUPER_ADMIN
+        # El borrado múltiple de marcaciones está reservado al SUPER_ADMIN.
+        # No basta con tener el permiso: el rol es una segunda barrera, y el
+        # servidor la vuelve a comprobar aunque aquí se dijera que sí.
         "borrado_multiple": bool(
-            definicion.get("seleccionable") and usuario and usuario.rol_nombre == "SUPER_ADMIN"
+            definicion.get("borrado") and usuario and usuario.rol_nombre == "SUPER_ADMIN"
         ),
     }
     return definicion

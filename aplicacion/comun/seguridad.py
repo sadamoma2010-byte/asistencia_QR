@@ -20,7 +20,7 @@ from typing import Callable
 
 import bcrypt
 import jwt
-from flask import current_app, g, request, session
+from flask import current_app, has_request_context, request, session
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -215,23 +215,38 @@ def _token_de_la_peticion() -> str | None:
     return session.get("token_acceso")
 
 
-def usuario_actual() -> UsuarioAutenticado | None:
-    """Usuario de la petición en curso, o None si no hay sesión válida."""
-    if "usuario" in g:
-        return g.usuario
+_SIN_RESOLVER = object()
 
-    token = _token_de_la_peticion()
-    if not token:
-        g.usuario = None
+
+def usuario_actual() -> UsuarioAutenticado | None:
+    """
+    Usuario de la petición en curso, o None si no hay sesión válida.
+
+    El resultado se guarda en el propio objeto `request`, no en `g`. Es
+    deliberado: `g` pertenece al contexto de aplicación, que puede sobrevivir a
+    varias peticiones cuando alguien lo abre a mano —guiones, pruebas, ciertos
+    despliegues—. En ese caso el usuario de una petición se filtraría a la
+    siguiente, y alguien podría heredar los permisos de quien pasó antes.
+    """
+    if not has_request_context():
         return None
 
-    try:
-        carga = leer_token(token, current_app.config["JWT_ACCESO_SECRETO"], "access")
-        g.usuario = _cargar_usuario(carga["sub"])
-    except NoAutorizado:
-        g.usuario = None
+    cacheado = getattr(request, "_usuario_autenticado", _SIN_RESOLVER)
+    if cacheado is not _SIN_RESOLVER:
+        return cacheado
 
-    return g.usuario
+    token = _token_de_la_peticion()
+    usuario: UsuarioAutenticado | None = None
+
+    if token:
+        try:
+            carga = leer_token(token, current_app.config["JWT_ACCESO_SECRETO"], "access")
+            usuario = _cargar_usuario(carga["sub"])
+        except NoAutorizado:
+            usuario = None
+
+    request._usuario_autenticado = usuario
+    return usuario
 
 
 def exigir_usuario() -> UsuarioAutenticado:

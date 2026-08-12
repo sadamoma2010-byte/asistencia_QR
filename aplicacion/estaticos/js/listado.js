@@ -286,11 +286,15 @@
       </td>`;
   }
 
+  // En Asistencia cada fila es una marcación y se identifica por `id`; en
+  // Reportes cada fila es un docente y lo que se envía es su `teacherId`.
+  const claveFila = (fila) => fila[vista.borrado?.clave_fila || 'id'];
+
   function pintar(elementos) {
     cuerpo.innerHTML = elementos
       .map((fila) => {
         const casilla = vista.puede.borrado_multiple
-          ? `<td class="px-4 py-3"><input type="checkbox" data-seleccion="fila" value="${esc(fila.id)}"
+          ? `<td class="px-4 py-3"><input type="checkbox" data-seleccion="fila" value="${esc(claveFila(fila))}"
                class="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring/40"></td>`
           : '';
         const celdas = vista.columnas
@@ -305,7 +309,7 @@
     tarjetas.innerHTML = elementos
       .map((fila) => {
         const casilla = vista.puede.borrado_multiple
-          ? `<input type="checkbox" data-seleccion="fila" value="${esc(fila.id)}"
+          ? `<input type="checkbox" data-seleccion="fila" value="${esc(claveFila(fila))}"
                class="mt-1 h-4 w-4 shrink-0 rounded border-input text-primary">`
           : '';
         const detalle = vista.columnas
@@ -330,10 +334,15 @@
       .join('');
 
     if (vista.puede.borrado_multiple) {
+      const cfg = vista.borrado || {};
       const seleccion = Interfaz.conectarSeleccion(document, (elegidas) => {
         barra.classList.toggle('hidden', elegidas.length === 0);
         barra.classList.toggle('flex', elegidas.length > 0);
-        barra.querySelector('[data-cuenta]').textContent = elegidas.length;
+
+        const unidad = elegidas.length === 1 ? cfg.unidad : cfg.unidades;
+        const concordancia = elegidas.length === 1 ? 'seleccionado' : 'seleccionados';
+        barra.querySelector('[data-cuenta]').textContent =
+          `${elegidas.length} ${unidad || 'elemento(s)'} ${concordancia}`;
       });
       barra.__seleccion = seleccion;
     }
@@ -513,27 +522,62 @@
     if (nodo) cargar();
   }
 
-  // Borrado múltiple de marcaciones
+  // ── Borrado múltiple ────────────────────────────────────────────
+
   const borrar = document.getElementById('borrar-seleccion');
-  if (borrar) {
+  if (borrar && vista.borrado) {
     borrar.addEventListener('click', async () => {
-      const ids = barra.__seleccion.seleccionadas();
-      if (!ids.length) return;
+      const elegidos = barra.__seleccion.seleccionadas();
+      if (!elegidos.length) return;
+
+      const cfg = vista.borrado;
+      const unidad = elegidos.length === 1 ? cfg.unidad : cfg.unidades;
+
+      // El periodo sale de los filtros que están puestos en pantalla
+      const filtros = new URLSearchParams(location.search);
+      const desde = filtros.get('dateFrom');
+      const hasta = filtros.get('dateTo');
+
+      let periodo = 'todo el histórico';
+      if (desde && hasta) periodo = `del ${desde} al ${hasta}`;
+      else if (desde) periodo = `desde el ${desde}`;
+      else if (hasta) periodo = `hasta el ${hasta}`;
+
+      const texto = cfg.con_periodo
+        ? `Se eliminarán todas las marcaciones de ${elegidos.length} ${unidad} en el periodo ${periodo}.`
+        : `Va a eliminar ${elegidos.length} ${unidad}.`;
+
+      const detalle =
+        '<p class="font-medium text-foreground">Qué ocurre exactamente</p>' +
+        '<ul class="mt-1 list-disc space-y-0.5 pl-4">' +
+        '<li>Los registros quedan marcados como eliminados, no se borran de la base.</li>' +
+        '<li>La auditoría guarda el detalle y su nombre como responsable.</li>' +
+        '<li>Esta acción está reservada al rol SUPER_ADMIN.</li>' +
+        '</ul>' +
+        (cfg.con_periodo && !desde && !hasta
+          ? '<p class="mt-2 font-medium text-destructive">No hay filtro de fechas: se eliminará el histórico completo de esos docentes.</p>'
+          : '');
 
       const confirmado = await Interfaz.confirmar({
-        titulo: 'Eliminar marcaciones',
-        texto: `Va a eliminar ${ids.length} marcación(es). Los registros se conservan marcados y la auditoría dejará constancia de quién lo hizo.`,
-        detalle: 'Esta acción está reservada al rol SUPER_ADMIN.',
-        etiqueta: `Eliminar ${ids.length}`,
+        titulo: cfg.titulo,
+        texto,
+        detalle,
+        etiqueta: `Sí, eliminar`,
       });
       if (!confirmado) return;
 
+      const cuerpo = { [cfg.campo]: elegidos };
+      if (cfg.con_periodo) {
+        if (desde) cuerpo.dateFrom = desde;
+        if (hasta) cuerpo.dateTo = hasta;
+      }
+
       try {
-        const resultado = await Api.post('/attendance/bulk-delete', { ids });
-        Interfaz.aviso(resultado.message, 'exito');
+        const resultado = await Api.post(cfg.ruta, cuerpo);
+        Interfaz.aviso(resultado.message, 'exito', 6000);
         cargar();
       } catch (error) {
-        Interfaz.aviso(error.mensaje, 'error');
+        Interfaz.aviso(error.mensaje, 'error', 7000);
       }
     });
   }

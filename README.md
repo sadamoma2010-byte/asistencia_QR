@@ -177,6 +177,8 @@ Todas se ejecutan contra la base real y retiran lo que crean.
 | `.venv\Scripts\python herramientas\probar_pantallas.py` | Que las 15 pantallas respondan con su contenido |
 | `.venv\Scripts\python herramientas\probar_reglas.py` | Las reglas de negocio RN001 a RN009 |
 | `.venv\Scripts\python herramientas\probar_crud.py` | Alta, edición, relaciones y baja en cada módulo |
+| `.venv\Scripts\python herramientas\probar_qr.py` | Que el QR lleve a una dirección alcanzable y sirva a todos |
+| `.venv\Scripts\python herramientas\probar_borrado.py` | Borrado múltiple, sus barreras y su rastro en auditoría |
 
 ---
 
@@ -195,11 +197,24 @@ Todas se ejecutan contra la base real y retiran lo que crean.
 
 ## Flujo del QR institucional
 
-1. El administrador configura la **URL pública** del QR en `Configuración → Código QR`.
-2. El sistema genera un QR único institucional (descargable en PNG y SVG) apuntando a `/marcar`.
-3. El docente escanea el QR desde su celular → autenticación → **Panel Docente**.
-4. El docente pulsa **Registrar Entrada** o **Registrar Salida**.
-5. El backend valida las reglas de negocio (RN001–RN009), calcula puntualidad y registra auditoría.
+Es **un solo código para toda la institución**: no hay uno por docente.
+
+1. El administrador abre `Código QR`. La pantalla detecta la dirección de este equipo
+   en la red y la propone; basta con guardarla.
+2. El sistema genera el QR (descargable en PNG y SVG) apuntando a `/marcar`.
+3. Se imprime y se coloca en el punto de acceso.
+4. Cualquier docente lo escanea, entra con su cuenta y el sistema reconoce de quién
+   se trata: cada uno llega a su propia pantalla.
+5. Pulsa **Registrar entrada** o **Registrar salida**.
+6. Se validan las reglas RN001–RN009, se calcula la puntualidad y queda auditado.
+
+> La dirección del QR **no puede ser `localhost`**: en un celular esa palabra
+> apunta al propio celular. Tiene que ser la dirección del equipo en la red del
+> centro, y los teléfonos deben estar en esa misma red. La pantalla avisa si la
+> dirección configurada no serviría.
+
+> Para marcar, cada docente necesita una **cuenta de acceso vinculada** a su ficha.
+> Se asigna en `Docentes → Editar → Cuenta de acceso`.
 
 ---
 

@@ -150,43 +150,58 @@ const Interfaz = (() => {
   /**
    * Conecta la casilla de la cabecera con las de cada fila.
    * Sustituye a la selección del DataTable en React.
+   *
+   * Cada registro aparece dos veces en el documento: en la tabla de escritorio
+   * y en las tarjetas del móvil. Solo una de las dos está visible, pero ambas
+   * existen, así que se cuenta por valor y no por casilla: de lo contrario el
+   * total saldría duplicado y se enviarían identificadores repetidos.
    */
   function conectarSeleccion(raiz, alCambiar) {
     const cabecera = raiz.querySelector('[data-seleccion="todas"]');
-    const filas = () => [...raiz.querySelectorAll('[data-seleccion="fila"]')];
+    const casillas = () => [...raiz.querySelectorAll('[data-seleccion="fila"]')];
 
-    const marcadas = () => filas().filter((c) => c.checked);
+    const valores = () => [...new Set(casillas().map((c) => c.value))];
+    const elegidos = () => [...new Set(casillas().filter((c) => c.checked).map((c) => c.value))];
 
     const refrescar = () => {
-      const total = filas().length;
-      const elegidas = marcadas();
+      const total = valores().length;
+      const marcados = elegidos();
 
       if (cabecera) {
-        cabecera.checked = total > 0 && elegidas.length === total;
+        cabecera.checked = total > 0 && marcados.length === total;
         // Estado intermedio: hay selección, pero no completa
-        cabecera.indeterminate = elegidas.length > 0 && elegidas.length < total;
+        cabecera.indeterminate = marcados.length > 0 && marcados.length < total;
       }
 
-      filas().forEach((casilla) => {
+      casillas().forEach((casilla) => {
         const fila = casilla.closest('[data-fila]');
         if (fila) fila.classList.toggle('bg-accent/60', casilla.checked);
       });
 
-      if (alCambiar) alCambiar(elegidas.map((c) => c.value));
+      if (alCambiar) alCambiar(marcados);
     };
 
     if (cabecera) {
       cabecera.addEventListener('change', () => {
-        filas().forEach((casilla) => {
+        casillas().forEach((casilla) => {
           casilla.checked = cabecera.checked;
         });
         refrescar();
       });
     }
-    filas().forEach((casilla) => casilla.addEventListener('change', refrescar));
+
+    casillas().forEach((casilla) =>
+      casilla.addEventListener('change', () => {
+        // La casilla gemela del otro diseño debe quedar igual
+        casillas()
+          .filter((otra) => otra.value === casilla.value && otra !== casilla)
+          .forEach((otra) => (otra.checked = casilla.checked));
+        refrescar();
+      }),
+    );
 
     refrescar();
-    return { seleccionadas: () => marcadas().map((c) => c.value), refrescar };
+    return { seleccionadas: elegidos, refrescar };
   }
 
   // ── Filtros que recargan la página ────────────────────────────────

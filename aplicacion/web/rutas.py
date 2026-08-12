@@ -129,7 +129,20 @@ for _nombre, (_titulo, _permiso) in LISTADOS.items():
 @bp.get("/qr")
 @con_sesion("settings.read")
 def codigo_qr():
-    return render_template("qr.html", qr=configuracion.qr(), **_contexto("Código QR"))
+    from flask import current_app
+
+    from ..comun import red
+
+    datos = configuracion.qr()
+    return render_template(
+        "qr.html",
+        qr=datos,
+        # Un QR con «localhost» se escanea bien pero no lleva a ninguna parte
+        # desde un teléfono: se avisa y se ofrece la dirección correcta.
+        sugerida=red.url_sugerida(current_app.config["PUERTO"]),
+        alcanzable=red.es_alcanzable_desde_fuera(datos.get("publicUrl", "")),
+        **_contexto("Código QR"),
+    )
 
 
 @bp.get("/configuracion")
