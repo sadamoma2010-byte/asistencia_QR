@@ -25,7 +25,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from ..extensiones import bd
-from ..modelos import Docente, EstadoRegistro, Permiso, Rol, RolPermiso, Usuario
+from ..modelos import Docente, EstadoRegistro, Permiso, RolPermiso, Usuario
+from ..modelos.acceso import ROL_CONTROL_TOTAL
 from .errores import NoAutorizado, Prohibido
 
 
@@ -132,22 +133,29 @@ def leer_token(token: str, secreto: str, tipo: str) -> dict:
 
 @dataclass
 class UsuarioAutenticado:
-    """Equivale a `AuthenticatedUser`."""
+    """
+    Equivale a `AuthenticatedUser`.
+
+    Lleva el rol por partida doble: `rol_codigo` es el identificador con el que
+    se decide qué puede hacer, y `rol_nombre` es solo la etiqueta que se
+    muestra. Nada del control de acceso mira el nombre.
+    """
 
     id: str
     email: str
     nombre_completo: str
     rol_id: str
+    rol_codigo: str
     rol_nombre: str
     permisos: list[str] = field(default_factory=list)
     docente_id: str | None = None
 
     @property
     def es_super_admin(self) -> bool:
-        return self.rol_nombre == "SUPER_ADMIN"
+        return self.rol_codigo == ROL_CONTROL_TOTAL
 
     def tiene(self, *permisos: str) -> bool:
-        """SUPER_ADMIN siempre puede: misma regla que `PermissionsGuard`."""
+        """Quien tiene control total siempre puede: misma regla que antes."""
         if self.es_super_admin:
             return True
         return any(p in self.permisos for p in permisos)
@@ -196,6 +204,7 @@ def _cargar_usuario(usuario_id: str) -> UsuarioAutenticado:
         email=usuario.email,
         nombre_completo=usuario.nombre_completo,
         rol_id=usuario.role_id,
+        rol_codigo=usuario.rol.code,
         rol_nombre=usuario.rol.name,
         permisos=permisos,
         docente_id=docente_id,
@@ -295,23 +304,26 @@ def requiere_permisos(*requeridos: str) -> Callable:
     return decorador
 
 
-def requiere_roles(*nombres: str) -> Callable:
+def requiere_roles(*codigos: str) -> Callable:
     """
-    Exige pertenecer a uno de los roles indicados.
+    Exige pertenecer a uno de los roles indicados, por su código.
 
     Equivale a `@RequireRoles` con `RolesGuard`. A diferencia del control por
-    permisos, aquí el SUPER_ADMIN **no** pasa automáticamente: debe figurar en
-    la lista. Es la segunda barrera que impide que un permiso concedido por
-    error abra una acción reservada.
+    permisos, aquí el rol de control total **no** pasa automáticamente: debe
+    figurar en la lista. Es la segunda barrera que impide que un permiso
+    concedido por error abra una acción reservada.
+
+    Se comparan códigos y no nombres: si mañana el rol pasa a llamarse
+    «Rector(a)», esta comprobación sigue valiendo.
     """
 
     def decorador(funcion: Callable) -> Callable:
         @wraps(funcion)
         def envoltura(*args, **kwargs):
             usuario = exigir_usuario()
-            if usuario.rol_nombre not in nombres:
+            if usuario.rol_codigo not in codigos:
                 raise Prohibido(
-                    "Esta acción está reservada a: " + ", ".join(nombres)
+                    f"Esta acción está reservada a otro rol. El suyo es «{usuario.rol_nombre}»."
                 )
             return funcion(*args, **kwargs)
 

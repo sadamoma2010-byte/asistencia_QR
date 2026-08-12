@@ -32,6 +32,7 @@ erDiagram
 
     ROLES {
         uuid id PK
+        varchar code UK
         varchar name UK
         varchar description
         boolean is_system
@@ -167,13 +168,19 @@ erDiagram
 ### Acceso y autorización
 
 #### `roles`
-Perfiles de acceso al sistema. Los cuatro iniciales son SUPER_ADMIN, ADMINISTRADOR,
-COORDINADOR y DOCENTE.
+Perfiles de acceso al sistema. Los cuatro iniciales tienen los códigos
+`SUPER_ADMIN`, `ADMINISTRADOR`, `COORDINADOR` y `DOCENTE`.
+
+El rol tiene dos identidades separadas a propósito: `code` es lo que consulta
+el control de acceso y no cambia nunca; `name` es la etiqueta visible y puede
+editarse. Así la institución puede llamar «Rector(a)» a quien tiene el control
+total sin que nadie pierda permisos.
 
 | Campo | Tipo | Función |
 |---|---|---|
 | `id` | UUID PK | Identificador |
-| `name` | VARCHAR(60) único | Nombre en mayúsculas |
+| `code` | VARCHAR(40) único | Identificador interno del rol, estable |
+| `name` | VARCHAR(60) único | Nombre visible, editable |
 | `description` | VARCHAR(300) | Alcance del rol |
 | `is_system` | BOOLEAN | Si es `true`, no puede eliminarse |
 | `status` | ENUM | ACTIVE / INACTIVE |
@@ -262,7 +269,7 @@ Restricciones en la base: formato HH:mm válido, salida posterior a entrada, dí
 
 #### `attendances`
 Marcaciones de entrada y salida. **Es la evidencia del sistema**, por eso la eliminación
-es lógica y está reservada al SUPER_ADMIN.
+es lógica y está reservada al rol con control total (`SUPER_ADMIN`).
 
 | Campo | Tipo | Función |
 |---|---|---|

@@ -16,13 +16,29 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..extensiones import bd
 from .base import BorradoLogico, ConEstado, MarcasTiempo, columna_uuid, nuevo_id
 
+# Código del rol con control total. Es el único que el sistema reconoce por
+# sí mismo; su nombre visible puede ser cualquiera.
+ROL_CONTROL_TOTAL = "SUPER_ADMIN"
+
 
 class Rol(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):
-    """Perfiles de acceso. Los del sistema no pueden eliminarse."""
+    """
+    Perfiles de acceso. Los del sistema no pueden eliminarse.
+
+    El rol tiene dos identidades y conviene no confundirlas:
+
+    · `code`  es el identificador interno. Es lo que consulta el control de
+              acceso y no cambia nunca.
+    · `name`  es el nombre visible, y puede editarse libremente.
+
+    Separarlos permite que la institución llame «Rector(a)» a quien tiene el
+    control total sin que nadie pierda sus permisos por el camino.
+    """
 
     __tablename__ = "roles"
 
     id: Mapped[str] = columna_uuid(primary_key=True, default=nuevo_id)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(60), unique=True, nullable=False)
     description: Mapped[str | None] = mapped_column(String(300))
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -36,7 +52,8 @@ class Rol(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):
 
     @property
     def es_super_admin(self) -> bool:
-        return self.name == "SUPER_ADMIN"
+        # Por el código, nunca por el nombre: el nombre es editable
+        return self.code == ROL_CONTROL_TOTAL
 
 
 class Permiso(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):

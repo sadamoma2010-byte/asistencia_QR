@@ -183,6 +183,7 @@ Todas se ejecutan contra la base real y retiran lo que crean.
 | `.venv\Scripts\python herramientas\probar_qr.py` | Que el QR lleve a una dirección alcanzable y sirva a todos |
 | `.venv\Scripts\python herramientas\probar_borrado.py` | Borrado múltiple, sus barreras y su rastro en auditoría |
 | `.venv\Scripts\python herramientas\probar_fotos.py` | Que la fotografía se guarde en la base y se sirva bien |
+| `.venv\Scripts\python herramientas\probar_roles.py` | Que renombrar un rol no altere sus permisos |
 
 Y una utilidad que solo se ejecuta una vez, al actualizar desde una versión
 anterior a la 3.4:
@@ -194,6 +195,12 @@ anterior a la 3.4:
 Añade las columnas de la fotografía y traslada a la base las imágenes que
 estuvieran en `uploads/teachers/`.
 
+```bash
+.venv\Scripts\python herramientas\migrar_roles.py
+```
+
+Da a cada rol un identificador propio y pone los nombres en castellano.
+
 ---
 
 ## Usuario inicial (seed)
@@ -202,10 +209,35 @@ estuvieran en `uploads/teachers/`.
 |---|---|
 | Correo | `admin@datly.local` |
 | Password | `Admin123*` |
-| Rol | `SUPER_ADMIN` |
+| Rol | `Rector(a)` |
 | Estado | `ACTIVO` |
 
 > Cambie la contraseña en el primer ingreso en un entorno real.
+
+---
+
+## Roles
+
+Cada rol tiene **dos identidades distintas**, y conviene no confundirlas:
+
+| | Para qué sirve | ¿Se puede cambiar? |
+|---|---|---|
+| **Identificador** (`code`) | Es lo que consulta el control de acceso | No |
+| **Nombre** (`name`) | Es lo que se ve en pantalla | Sí, libremente |
+
+Por eso el rector puede llamarse `Rector(a)`, `Dirección General` o como
+corresponda en cada institución, sin que nadie pierda un solo permiso.
+
+| Identificador | Nombre por defecto | Qué puede hacer |
+|---|---|---|
+| `SUPER_ADMIN` | Rector(a) | Todo, incluido el borrado de marcaciones |
+| `ADMINISTRADOR` | Administrador(a) | Gestión operativa completa |
+| `COORDINADOR` | Coordinador(a) | Supervisa docentes, horarios y reportes |
+| `DOCENTE` | Docente | Registra su asistencia y consulta su historial |
+
+Los roles del sistema **se pueden renombrar** pero no eliminar ni inactivar, y
+al de control total no se le pueden recortar los permisos: los tiene todos por
+definición.
 
 ---
 

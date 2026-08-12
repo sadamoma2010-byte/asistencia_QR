@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..comun.seguridad import usuario_actual
+from ..modelos.acceso import ROL_CONTROL_TOTAL
 
 
 def _columna(campo: str, etiqueta: str, **extra: Any) -> dict:
@@ -212,6 +213,7 @@ DEFINICIONES: dict[str, dict] = {
         "ordenar": "name",
         "columnas": [
             _columna("name", "Rol", tipo="destacado", ordenable="name"),
+            _columna("code", "Identificador", tipo="codigo"),
             _columna("description", "Descripción", tipo="texto"),
             _columna("_count.users", "Usuarios", tipo="contador"),
             _columna("_count.permissions", "Permisos", tipo="contador"),
@@ -304,7 +306,7 @@ def construir(nombre: str) -> dict:
         # No basta con tener el permiso: el rol es una segunda barrera, y el
         # servidor la vuelve a comprobar aunque aquí se dijera que sí.
         "borrado_multiple": bool(
-            definicion.get("borrado") and usuario and usuario.rol_nombre == "SUPER_ADMIN"
+            definicion.get("borrado") and usuario and usuario.rol_codigo == ROL_CONTROL_TOTAL
         ),
     }
     return definicion

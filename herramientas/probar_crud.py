@@ -169,7 +169,7 @@ def main() -> int:
 
     # ── Usuarios ─────────────────────────────────────────────────────
     _, roles, _ = api("get", "/roles/options")
-    rol_docente = next((r["id"] for r in (roles or []) if r["name"] == "DOCENTE"), None)
+    rol_docente = next((r["id"] for r in (roles or []) if r["code"] == "DOCENTE"), None)
 
     ciclo(
         "Usuarios",

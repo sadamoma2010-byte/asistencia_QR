@@ -553,7 +553,7 @@
         '<ul class="mt-1 list-disc space-y-0.5 pl-4">' +
         '<li>Los registros quedan marcados como eliminados, no se borran de la base.</li>' +
         '<li>La auditoría guarda el detalle y su nombre como responsable.</li>' +
-        '<li>Esta acción está reservada al rol SUPER_ADMIN.</li>' +
+        '<li>Esta acción está reservada al rol con control total.</li>' +
         '</ul>' +
         (cfg.con_periodo && !desde && !hasta
           ? '<p class="mt-2 font-medium text-destructive">No hay filtro de fechas: se eliminará el histórico completo de esos docentes.</p>'

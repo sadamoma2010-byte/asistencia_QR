@@ -69,7 +69,9 @@ def main() -> int:
     usuario = datos.get("user") or {}
     comprobar("Hash bcrypt de Node aceptado", "sí" if datos.get("accessToken") else "NO", "sí")
     comprobar("Usuario devuelto", usuario.get("fullName"), "Super Admin")
-    comprobar("Rol", (usuario.get("role") or {}).get("name"), "SUPER_ADMIN")
+    rol = usuario.get("role") or {}
+    comprobar("Rol (identificador interno)", rol.get("code"), "SUPER_ADMIN")
+    comprobar("Rol (nombre visible)", bool(rol.get("name")), bien=bool(rol.get("name")))
     comprobar("Permisos cargados", len(usuario.get("permissions", [])), bien=len(usuario.get("permissions", [])) > 50)
     comprobar("Vigencia del token", datos.get("expiresIn"), "15m")
 

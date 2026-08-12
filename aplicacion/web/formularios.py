@@ -172,7 +172,7 @@ FORMULARIOS: dict[str, dict] = {
             ESTADO,
             campo("permissionIds", "Permisos", "permisos",
                   relacion="/roles/{id}/permissions", clave_relacion="permissionIds",
-                  ayuda="El rol SUPER_ADMIN tiene acceso total por definición"),
+                  ayuda="El rol con control total los tiene todos por definición y no se editan"),
         ],
     },
     "permisos": {

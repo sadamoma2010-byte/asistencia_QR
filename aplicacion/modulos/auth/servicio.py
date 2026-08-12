@@ -95,6 +95,7 @@ def entrar(email: str, clave: str, ctx: ContextoPeticion) -> dict:
             email=usuario.email,
             nombre_completo=usuario.nombre_completo,
             rol_id=usuario.role_id,
+            rol_codigo=usuario.rol.code,
             rol_nombre=usuario.rol.name,
         ),
         ctx=ctx,
@@ -252,6 +253,9 @@ def perfil(usuario: Usuario, permisos: list[str]) -> dict:
         "lastLoginAt": iso(usuario.last_login_at),
         "role": {
             "id": usuario.rol.id,
+            # `code` identifica el rol y `name` es solo la etiqueta visible:
+            # cualquier comprobación debe mirar el código.
+            "code": usuario.rol.code,
             "name": usuario.rol.name,
             "description": usuario.rol.description,
         },

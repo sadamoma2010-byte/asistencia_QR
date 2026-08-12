@@ -89,7 +89,7 @@ def preparar() -> tuple[Docente, Horario, UsuarioAutenticado]:
     Anclar el horario al momento presente permite provocar la puntualidad y la
     tardanza de forma controlada, sin depender de a qué hora se ejecute.
     """
-    rol = bd.session.execute(select(Rol).where(Rol.name == "DOCENTE")).scalar_one()
+    rol = bd.session.execute(select(Rol).where(Rol.code == "DOCENTE")).scalar_one()
 
     usuario = Usuario(
         id=nuevo_id(),
@@ -139,7 +139,8 @@ def preparar() -> tuple[Docente, Horario, UsuarioAutenticado]:
         email=usuario.email,
         nombre_completo=usuario.nombre_completo,
         rol_id=rol.id,
-        rol_nombre="DOCENTE",
+        rol_codigo=rol.code,
+        rol_nombre=rol.name,
         permisos=["attendance.self"],
         docente_id=docente.id,
     )
@@ -274,7 +275,8 @@ def main() -> int:
                 email=actor.email,
                 nombre_completo=actor.nombre_completo,
                 rol_id=actor.rol_id,
-                rol_nombre="ADMINISTRADOR",
+                rol_codigo="ADMINISTRADOR",
+                rol_nombre="Administrador(a)",
                 permisos=["attendance.create"],
                 docente_id=None,
             ),

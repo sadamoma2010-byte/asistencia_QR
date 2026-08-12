@@ -79,6 +79,11 @@ CREATE TABLE "refresh_tokens" (
 -- CreateTable
 CREATE TABLE "roles" (
     "id" UUID NOT NULL,
+    -- Identificador interno del rol. Es lo que consulta el control de acceso,
+    -- y no cambia nunca: asi el nombre visible se puede editar sin que nadie
+    -- pierda sus permisos.
+    "code" VARCHAR(40) NOT NULL,
+    -- Nombre que se muestra en la interfaz. Editable.
     "name" VARCHAR(60) NOT NULL,
     "description" VARCHAR(300),
     "is_system" BOOLEAN NOT NULL DEFAULT false,
@@ -280,6 +285,8 @@ CREATE INDEX "refresh_tokens_user_id_revoked_at_idx" ON "refresh_tokens"("user_i
 CREATE INDEX "refresh_tokens_expires_at_idx" ON "refresh_tokens"("expires_at");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "roles_code_key" ON "roles"("code");
+
 CREATE UNIQUE INDEX "roles_name_key" ON "roles"("name");
 
 -- CreateIndex
@@ -684,46 +691,46 @@ INSERT INTO "permissions" ("id", "code", "name", "module", "is_system", "status"
   (gen_random_uuid(), 'dashboard.read', 'Consultar dashboard', 'Dashboard', TRUE, 'ACTIVE', NOW(), NOW());
 
 -- ── Roles ──
-INSERT INTO "roles" ("id", "name", "description", "is_system", "status", "created_at", "updated_at") VALUES
-  (gen_random_uuid(), 'SUPER_ADMIN', 'Control total del sistema. Acceso irrestricto a todos los módulos.', TRUE, 'ACTIVE', NOW(), NOW()),
-  (gen_random_uuid(), 'ADMINISTRADOR', 'Gestión operativa completa. No administra el catálogo de permisos.', TRUE, 'ACTIVE', NOW(), NOW()),
-  (gen_random_uuid(), 'COORDINADOR', 'Supervisa docentes, horarios, asistencia y reportes. Sin gestión de usuarios.', TRUE, 'ACTIVE', NOW(), NOW()),
-  (gen_random_uuid(), 'DOCENTE', 'Registra su propia entrada y salida y consulta su historial.', TRUE, 'ACTIVE', NOW(), NOW());
+INSERT INTO "roles" ("id", "code", "name", "description", "is_system", "status", "created_at", "updated_at") VALUES
+  (gen_random_uuid(), 'SUPER_ADMIN', 'Rector(a)', 'Control total del sistema. Acceso irrestricto a todos los módulos.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'ADMINISTRADOR', 'Administrador(a)', 'Gestión operativa completa. No administra el catálogo de permisos.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'COORDINADOR', 'Coordinador(a)', 'Supervisa docentes, horarios, asistencia y reportes. Sin gestión de usuarios.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'DOCENTE', 'Docente', 'Registra su propia entrada y salida y consulta su historial.', TRUE, 'ACTIVE', NOW(), NOW());
 
 -- ── Asignación de permisos a cada rol ──
 -- SUPER_ADMIN: 62 permisos
 INSERT INTO "role_permissions" ("role_id", "permission_id", "created_at")
 SELECT r."id", p."id", NOW()
 FROM "roles" r CROSS JOIN "permissions" p
-WHERE r."name" = 'SUPER_ADMIN'
+WHERE r."code" = 'SUPER_ADMIN'
   AND p."code" IN ('users.read', 'users.create', 'users.update', 'users.delete', 'users.activate', 'users.deactivate', 'users.export', 'users.reset-password', 'roles.read', 'roles.create', 'roles.update', 'roles.delete', 'roles.activate', 'roles.deactivate', 'roles.export', 'permissions.read', 'permissions.create', 'permissions.update', 'permissions.delete', 'permissions.activate', 'permissions.deactivate', 'permissions.export', 'teachers.read', 'teachers.create', 'teachers.update', 'teachers.delete', 'teachers.activate', 'teachers.deactivate', 'teachers.export', 'subjects.read', 'subjects.create', 'subjects.update', 'subjects.delete', 'subjects.activate', 'subjects.deactivate', 'subjects.export', 'shifts.read', 'shifts.create', 'shifts.update', 'shifts.delete', 'shifts.activate', 'shifts.deactivate', 'shifts.export', 'schedules.read', 'schedules.create', 'schedules.update', 'schedules.delete', 'schedules.activate', 'schedules.deactivate', 'schedules.export', 'attendance.read', 'attendance.create', 'attendance.export', 'attendance.self', 'attendance.delete', 'reports.read', 'reports.export', 'audit.read', 'audit.export', 'settings.read', 'settings.update', 'dashboard.read');
 
 -- ADMINISTRADOR: 53 permisos
 INSERT INTO "role_permissions" ("role_id", "permission_id", "created_at")
 SELECT r."id", p."id", NOW()
 FROM "roles" r CROSS JOIN "permissions" p
-WHERE r."name" = 'ADMINISTRADOR'
+WHERE r."code" = 'ADMINISTRADOR'
   AND p."code" IN ('users.read', 'users.create', 'users.update', 'users.delete', 'users.activate', 'users.deactivate', 'users.export', 'users.reset-password', 'roles.read', 'roles.create', 'roles.update', 'roles.activate', 'roles.deactivate', 'roles.export', 'permissions.read', 'teachers.read', 'teachers.create', 'teachers.update', 'teachers.delete', 'teachers.activate', 'teachers.deactivate', 'teachers.export', 'subjects.read', 'subjects.create', 'subjects.update', 'subjects.delete', 'subjects.activate', 'subjects.deactivate', 'subjects.export', 'shifts.read', 'shifts.create', 'shifts.update', 'shifts.delete', 'shifts.activate', 'shifts.deactivate', 'shifts.export', 'schedules.read', 'schedules.create', 'schedules.update', 'schedules.delete', 'schedules.activate', 'schedules.deactivate', 'schedules.export', 'attendance.read', 'attendance.create', 'attendance.export', 'reports.read', 'reports.export', 'audit.read', 'audit.export', 'settings.read', 'settings.update', 'dashboard.read');
 
 -- COORDINADOR: 19 permisos
 INSERT INTO "role_permissions" ("role_id", "permission_id", "created_at")
 SELECT r."id", p."id", NOW()
 FROM "roles" r CROSS JOIN "permissions" p
-WHERE r."name" = 'COORDINADOR'
+WHERE r."code" = 'COORDINADOR'
   AND p."code" IN ('dashboard.read', 'teachers.read', 'teachers.update', 'teachers.export', 'subjects.read', 'subjects.create', 'subjects.update', 'subjects.export', 'shifts.read', 'schedules.read', 'schedules.create', 'schedules.update', 'schedules.export', 'attendance.read', 'attendance.create', 'attendance.export', 'reports.read', 'reports.export', 'audit.read');
 
 -- DOCENTE: 1 permisos
 INSERT INTO "role_permissions" ("role_id", "permission_id", "created_at")
 SELECT r."id", p."id", NOW()
 FROM "roles" r CROSS JOIN "permissions" p
-WHERE r."name" = 'DOCENTE'
+WHERE r."code" = 'DOCENTE'
   AND p."code" IN ('attendance.self');
 
 -- ── Usuario inicial (SUPER_ADMIN) ──
 -- Contraseña: Admin123*  — cámbiela tras el primer ingreso.
 INSERT INTO "users" ("id", "first_name", "last_name", "document", "email", "password", "status", "role_id", "created_at", "updated_at")
 SELECT gen_random_uuid(), 'Super', 'Admin', '1000000000', 'admin@datly.local', '$2b$12$9D8cDSxvVcEgUOrcXAyJT.i0wzWfLRpnOZaUfG/01UdgYMwCPv/Fm', 'ACTIVE', r."id", NOW(), NOW()
-FROM "roles" r WHERE r."name" = 'SUPER_ADMIN';
+FROM "roles" r WHERE r."code" = 'SUPER_ADMIN';
 
 -- ── Configuración ──
 INSERT INTO "settings" ("id", "key", "value", "type", "group", "label", "description", "is_public", "is_system", "created_at", "updated_at") VALUES

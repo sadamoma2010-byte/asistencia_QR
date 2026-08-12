@@ -17,6 +17,7 @@ from ...comun.peticion import ContextoPeticion
 from ...comun.seguridad import UsuarioAutenticado
 from ...comun.tiempo import iso
 from ...extensiones import bd
+from ...modelos.acceso import ROL_CONTROL_TOTAL
 from ...modelos import (
     AccionAuditoria,
     EstadoRegistro,
@@ -26,6 +27,23 @@ from ...modelos import (
     Usuario,
     nuevo_id,
 )
+
+
+def _codigo_desde(nombre: str) -> str:
+    """
+    Código estable a partir del nombre, para los roles que se crean a mano.
+
+    Se quitan tildes y se deja en mayúsculas con guiones bajos, que es el
+    formato de los roles del sistema: «Jefe de área» pasa a `JEFE_DE_AREA`.
+    """
+    import re
+    import unicodedata
+
+    sin_tildes = "".join(
+        c for c in unicodedata.normalize("NFD", nombre) if unicodedata.category(c) != "Mn"
+    )
+    limpio = re.sub(r"[^A-Za-z0-9]+", "_", sin_tildes).strip("_").upper()
+    return (limpio or "ROL")[:40]
 
 
 def _contar_usuarios(rol_id: str, solo_vigentes: bool = True) -> int:
@@ -61,6 +79,7 @@ class ServicioRoles(ServicioCRUD):
     def serializar(cls, fila: Rol) -> dict:
         return {
             **cls.campos_comunes(fila),
+            "code": fila.code,
             "name": fila.name,
             "description": fila.description,
             "isSystem": fila.is_system,
@@ -90,6 +109,7 @@ class ServicioRoles(ServicioCRUD):
 
         return {
             **cls.campos_comunes(fila),
+            "code": fila.code,
             "name": fila.name,
             "description": fila.description,
             "isSystem": fila.is_system,
@@ -119,7 +139,12 @@ class ServicioRoles(ServicioCRUD):
             .where(Rol.deleted_at.is_(None), Rol.status == EstadoRegistro.ACTIVO)
             .order_by(Rol.name.asc())
         ).scalars()
-        return [{"id": f.id, "name": f.name, "description": f.description} for f in filas]
+        # Va el código además del nombre: quien consuma el catálogo debe poder
+        # identificar un rol sin depender de cómo se llame hoy.
+        return [
+            {"id": f.id, "code": f.code, "name": f.name, "description": f.description}
+            for f in filas
+        ]
 
     # ── Mutaciones ───────────────────────────────────────────────────
 
@@ -127,6 +152,9 @@ class ServicioRoles(ServicioCRUD):
     def construir(cls, datos: dict) -> Rol:
         return Rol(
             id=nuevo_id(),
+            # Los roles nuevos toman su código del nombre: no hay nada que
+            # el sistema deba reconocer en ellos, solo ha de ser estable.
+            code=_codigo_desde(datos["name"]),
             name=datos["name"],
             description=datos.get("description") or None,
             status=datos.get("status") or EstadoRegistro.ACTIVO,
@@ -161,8 +189,9 @@ class ServicioRoles(ServicioCRUD):
 
     @classmethod
     def gancho_antes_de_actualizar(cls, fila: Rol, datos: dict) -> None:
-        if fila.is_system and datos.get("name") and datos["name"] != fila.name:
-            raise SolicitudInvalida("No es posible renombrar un rol del sistema")
+        # Renombrar un rol del sistema sí se permite: su código no cambia, así
+        # que el control de acceso sigue reconociéndolo. La institución puede
+        # llamarlo como quiera.
         nombre = datos.get("name")
         if nombre and nombre.lower() != fila.name.lower():
             cls.exige_unico(Rol.name, nombre, "Ya existe un rol con ese nombre", excluir=fila.id)
@@ -191,9 +220,13 @@ class ServicioRoles(ServicioCRUD):
 
     @classmethod
     def liberar_claves_unicas(cls, fila: Rol) -> None:
+        # El código también es único: si no se libera, ese nombre no podría
+        # volver a usarse nunca aunque el rol ya no esté a la vista.
         import time
 
-        fila.name = f"{fila.name} (eliminado {int(time.time() * 1000)})"[:60]
+        marca = int(time.time() * 1000)
+        fila.code = f"{fila.code}.DEL.{marca}"[:40]
+        fila.name = f"{fila.name} (eliminado {marca})"[:60]
 
     # ── Permisos del rol ─────────────────────────────────────────────
 
@@ -208,9 +241,9 @@ class ServicioRoles(ServicioCRUD):
         """Reemplaza el conjunto de permisos concedidos al rol."""
         rol = cls.buscar(identificador)
 
-        if rol.name == "SUPER_ADMIN":
+        if rol.code == ROL_CONTROL_TOTAL:
             raise SolicitudInvalida(
-                "El rol SUPER_ADMIN tiene acceso total por definición: sus permisos no se editan"
+                f"«{rol.name}» tiene acceso total por definición: sus permisos no se editan"
             )
 
         validos = bd.session.execute(

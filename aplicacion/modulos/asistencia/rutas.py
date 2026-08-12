@@ -9,6 +9,7 @@ from ...comun.excel import Columna
 from ...comun.peticion import contexto
 from ...comun.respuestas import responder
 from ...comun.seguridad import exigir_usuario, requiere_permisos, requiere_roles
+from ...modelos.acceso import ROL_CONTROL_TOTAL
 from ...comun.tiempo import clave_hora, formato_fecha
 from . import servicio
 from .esquemas import BorrarPorDocente, BorrarSeleccionadas, RegistrarMarcacion
@@ -85,7 +86,7 @@ def exportar():
 # El borrado exige las dos barreras: el permiso y además el rol. Un permiso
 # concedido por error a otro rol no basta para llegar aquí.
 @bp.post("/attendance/bulk-delete")
-@requiere_roles("SUPER_ADMIN")
+@requiere_roles(ROL_CONTROL_TOTAL)
 @requiere_permisos("attendance.delete")
 def borrar_seleccionadas():
     datos = BorrarSeleccionadas.model_validate(request.get_json(silent=True) or {})
@@ -97,7 +98,7 @@ def borrar_seleccionadas():
 
 
 @bp.post("/attendance/delete-by-teacher")
-@requiere_roles("SUPER_ADMIN")
+@requiere_roles(ROL_CONTROL_TOTAL)
 @requiere_permisos("attendance.delete")
 def borrar_por_docente():
     datos = BorrarPorDocente.model_validate(request.get_json(silent=True) or {})

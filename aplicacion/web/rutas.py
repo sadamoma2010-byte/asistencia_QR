@@ -17,6 +17,7 @@ from urllib.parse import quote
 from flask import Blueprint, redirect, render_template, request, url_for
 
 from ..comun.seguridad import usuario_actual
+from ..modelos.acceso import ROL_CONTROL_TOTAL
 from ..modulos.configuracion import servicio as configuracion
 from . import navegacion
 
@@ -61,7 +62,7 @@ def _contexto(titulo: str) -> dict:
         },
         "permisos": {
             "marcar": bool(usuario and usuario.tiene("attendance.self", "attendance.create")),
-            "borrar_asistencia": bool(usuario and usuario.rol_nombre == "SUPER_ADMIN"),
+            "borrar_asistencia": bool(usuario and usuario.rol_codigo == ROL_CONTROL_TOTAL),
         },
         "institucion": configuracion.texto(
             configuracion.CLAVES["NOMBRE_CORTO"], "Institución Educativa"

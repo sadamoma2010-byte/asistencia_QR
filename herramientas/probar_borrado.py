@@ -212,7 +212,7 @@ def main() -> int:
         print("  " + "─" * 68)
 
         # Un docente no puede borrar, aunque llegue a la dirección
-        rol = bd.session.execute(select(Rol).where(Rol.name == "DOCENTE")).scalar_one()
+        rol = bd.session.execute(select(Rol).where(Rol.code == "DOCENTE")).scalar_one()
         cuenta = Usuario(
             id=nuevo_id(),
             first_name="Prueba",
