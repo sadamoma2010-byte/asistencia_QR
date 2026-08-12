@@ -459,9 +459,10 @@
       try {
         // Se pide el detalle: trae las relaciones que el listado no incluye
         const registro = await Api.get(`/${vista.recurso}/${id}`);
-        const guardado = await Formulario.abrir(vista.formulario, registro);
-        Formulario.conectarFoto(vista.recurso, id, cargar);
-        if (guardado) cargar();
+        await Formulario.abrir(vista.formulario, registro);
+        // Se recarga siempre, no solo al guardar: la fotografía se sube dentro
+        // del propio diálogo y puede haber cambiado aunque se cierre sin más.
+        cargar();
       } catch (error) {
         Interfaz.aviso(error.mensaje, 'error');
       }

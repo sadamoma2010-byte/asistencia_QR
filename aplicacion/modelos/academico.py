@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, SmallInteger, String
+from sqlalchemy import DateTime, ForeignKey, Index, LargeBinary, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensiones import bd
@@ -55,8 +55,17 @@ class Docente(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):
     email: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
     phone: Mapped[str | None] = mapped_column(String(30))
 
-    # Ruta pública de la fotografía, servida desde /uploads
+    # Ruta pública desde la que se sirve la fotografía
     photo_url: Mapped[str | None] = mapped_column(String(300))
+
+    # La imagen vive en la base, no en el disco: así viaja con el respaldo y
+    # no quedan archivos huérfanos cuando se elimina un docente. Se guarda
+    # normalizada a WEBP de 512×512, unos 10 KB por docente.
+    #
+    # `deferred` evita traerla en los listados: sin esto, cada consulta de
+    # docentes arrastraría todas las imágenes sin necesitarlas.
+    photo: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    photo_mime: Mapped[str | None] = mapped_column(String(40))
 
     # Cuenta con la que el docente entra a marcar su asistencia
     user_id: Mapped[str | None] = columna_uuid(

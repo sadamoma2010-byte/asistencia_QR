@@ -413,7 +413,7 @@ const Formulario = (() => {
         </div>
 
         <form id="campos-formulario" class="px-6 py-5" novalidate>
-          ${definicion.foto && esEdicion ? bloqueFoto(registro) : ''}
+          ${definicion.foto ? bloqueFoto(registro) : ''}
           <div class="grid gap-4 sm:grid-cols-6">
             ${definicion.campos
               .filter((d) => !(d.solo_crear && esEdicion) && !(d.solo_editar && !esEdicion))
@@ -439,6 +439,13 @@ const Formulario = (() => {
 
     document.body.appendChild(nodo);
     const formulario = nodo.querySelector('#campos-formulario');
+
+    // ── Fotografía ─────────────────────────────────────────────────
+    // Al editar se sube en el momento. Al crear todavía no hay a quién
+    // asignarla, así que se guarda aquí y se envía en cuanto el registro
+    // existe: si el alta falla, no queda ninguna imagen suelta.
+    let fotoPendiente = null;
+    const foto = definicion.foto ? conectarFoto(definicion, registro, (f) => (fotoPendiente = f)) : null;
 
     // ── Rellenar catálogos y listas ────────────────────────────────
     formulario.querySelectorAll('[data-catalogo]').forEach((select) => {
@@ -559,13 +566,21 @@ const Formulario = (() => {
             }
           }
 
-          // Las relaciones se envían después, ya con el identificador
+          // Las relaciones y la fotografía se envían después, ya con el
+          // identificador del registro recién creado
           const id = esEdicion ? registro.id : resultado?.id;
           if (id) {
             for (const relacion of relaciones) {
               await Api.patch(relacion.ruta.replace('{id}', id), {
                 [relacion.clave]: relacion.valores,
               });
+            }
+
+            if (fotoPendiente) {
+              texto.textContent = 'Subiendo la fotografía…';
+              const datos = new FormData();
+              datos.append('file', fotoPendiente);
+              await Api.subir(`/${definicion.recurso}/${id}/photo`, datos);
             }
           }
 
@@ -602,50 +617,65 @@ const Formulario = (() => {
   // ── Fotografía del docente ──────────────────────────────────────
 
   function bloqueFoto(registro) {
-    const iniciales = (
-      (registro.firstName || '?')[0] + (registro.lastName || '')[0] || ''
-    ).toUpperCase();
+    const iniciales = registro
+      ? ((registro.firstName || '?')[0] + (registro.lastName || '')[0] || '').toUpperCase()
+      : '';
+
+    const vista = registro?.photoUrl
+      ? `<img src="${esc(registro.photoUrl)}" alt="" class="h-16 w-16 rounded-full object-cover">`
+      : `<div class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10
+                     text-lg font-semibold text-primary">${esc(iniciales || '—')}</div>`;
 
     return `
       <div class="mb-5 flex items-center gap-4 rounded-lg border border-border bg-muted/40 p-4">
-        <div id="vista-foto" class="shrink-0">
-          ${
-            registro.photoUrl
-              ? `<img src="${esc(registro.photoUrl)}" alt=""
-                      class="h-16 w-16 rounded-full object-cover">`
-              : `<div class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10
-                             text-lg font-semibold text-primary">${esc(iniciales)}</div>`
-          }
-        </div>
+        <div id="vista-foto" class="shrink-0">${vista}</div>
         <div class="min-w-0 flex-1">
           <p class="text-sm font-medium text-foreground">Fotografía</p>
           <p class="mt-0.5 text-xs text-muted-foreground">
-            JPG, PNG, WEBP o GIF, máximo 5 MB. Se recorta a 512 × 512.
+            JPG, PNG, WEBP o GIF, máximo 5 MB. Se recorta a 512 × 512 y se guarda
+            en la base de datos.
           </p>
-          <div class="mt-2 flex flex-wrap gap-2">
+          <div class="mt-2 flex flex-wrap items-center gap-2">
             <label class="inline-flex h-9 cursor-pointer items-center rounded-lg border border-border
                           bg-card px-3 text-sm font-medium transition hover:bg-muted">
-              Cambiar
+              ${registro?.photoUrl ? 'Cambiar' : 'Elegir imagen'}
               <input type="file" id="archivo-foto" accept="image/*" class="hidden">
             </label>
-            ${
-              registro.photoUrl
-                ? `<button type="button" id="quitar-foto"
-                     class="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium
-                            text-destructive transition hover:bg-destructive/10">Quitar</button>`
-                : ''
-            }
+            <button type="button" id="quitar-foto"
+                    class="${registro?.photoUrl ? '' : 'hidden '}inline-flex h-9 items-center rounded-lg px-3
+                           text-sm font-medium text-destructive transition hover:bg-destructive/10">
+              Quitar
+            </button>
+            <span id="estado-foto" class="text-xs text-muted-foreground"></span>
           </div>
         </div>
       </div>`;
   }
 
-  /** Conecta la subida de fotografía dentro de un formulario ya abierto. */
-  function conectarFoto(recurso, id, alCambiar) {
+  /**
+   * Conecta el bloque de fotografía del formulario abierto.
+   *
+   * Editando se sube en el momento, porque el docente ya existe. Creando se
+   * guarda la elección y se avisa al formulario, que la enviará cuando tenga
+   * el identificador.
+   */
+  function conectarFoto(definicion, registro, alElegir) {
     const archivo = document.getElementById('archivo-foto');
     const quitar = document.getElementById('quitar-foto');
     const vista = document.getElementById('vista-foto');
-    if (!archivo) return;
+    const estado = document.getElementById('estado-foto');
+    if (!archivo) return null;
+
+    const esEdicion = Boolean(registro);
+    let objeto = null;
+
+    const marcador = () =>
+      `<div class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10
+                   text-lg font-semibold text-primary">—</div>`;
+
+    const mostrar = (origen) => {
+      vista.innerHTML = `<img src="${origen}" alt="" class="h-16 w-16 rounded-full object-cover">`;
+    };
 
     archivo.addEventListener('change', async () => {
       const fichero = archivo.files[0];
@@ -657,37 +687,65 @@ const Formulario = (() => {
         return;
       }
 
+      // Vista previa inmediata, antes de enviar nada
+      if (objeto) URL.revokeObjectURL(objeto);
+      objeto = URL.createObjectURL(fichero);
+      mostrar(objeto);
+      quitar.classList.remove('hidden');
+
+      if (!esEdicion) {
+        // Se guarda para enviarla cuando el docente exista
+        if (alElegir) alElegir(fichero);
+        estado.textContent = 'Se guardará al crear el docente';
+        return;
+      }
+
+      estado.textContent = 'Subiendo…';
       const datos = new FormData();
       datos.append('file', fichero);
 
       try {
-        const actualizado = await Api.subir(`/${recurso}/${id}/photo`, datos);
-        vista.innerHTML = `<img src="${actualizado.photoUrl}?t=${Date.now()}" alt=""
-                                class="h-16 w-16 rounded-full object-cover">`;
+        const actualizado = await Api.subir(`/${definicion.recurso}/${registro.id}/photo`, datos);
+        mostrar(actualizado.photoUrl);
+        estado.textContent = 'Guardada en la base de datos';
         Interfaz.aviso('Fotografía actualizada', 'exito');
-        if (alCambiar) alCambiar();
       } catch (error) {
+        estado.textContent = '';
         Interfaz.aviso(error.mensaje, 'error');
       } finally {
         archivo.value = '';
       }
     });
 
-    if (quitar) {
-      quitar.addEventListener('click', async () => {
-        try {
-          await Api.delete(`/${recurso}/${id}/photo`);
-          vista.innerHTML =
-            '<div class="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">—</div>';
-          quitar.remove();
-          Interfaz.aviso('Fotografía retirada', 'exito');
-          if (alCambiar) alCambiar();
-        } catch (error) {
-          Interfaz.aviso(error.mensaje, 'error');
-        }
-      });
-    }
+    quitar.addEventListener('click', async () => {
+      if (objeto) {
+        URL.revokeObjectURL(objeto);
+        objeto = null;
+      }
+
+      if (!esEdicion) {
+        if (alElegir) alElegir(null);
+        archivo.value = '';
+        vista.innerHTML = marcador();
+        quitar.classList.add('hidden');
+        estado.textContent = '';
+        return;
+      }
+
+      try {
+        await Api.delete(`/${definicion.recurso}/${registro.id}/photo`);
+        vista.innerHTML = marcador();
+        quitar.classList.add('hidden');
+        estado.textContent = '';
+        archivo.value = '';
+        Interfaz.aviso('Fotografía retirada', 'exito');
+      } catch (error) {
+        Interfaz.aviso(error.mensaje, 'error');
+      }
+    });
+
+    return { limpiar: () => objeto && URL.revokeObjectURL(objeto) };
   }
 
-  return { abrir, conectarFoto };
+  return { abrir };
 })();

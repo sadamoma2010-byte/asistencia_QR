@@ -83,6 +83,7 @@ erDiagram
         varchar document UK
         varchar email UK
         varchar photo_url
+        bytea photo
         enum status
         uuid user_id FK_UK
         timestamptz deleted_at
@@ -218,7 +219,9 @@ para que el docente marque su propia asistencia desde el QR.
 | Campo | Tipo | Función |
 |---|---|---|
 | `code` | VARCHAR(40) único | Código institucional, ej. DOC-0001 |
-| `photo_url` | VARCHAR(300) | Ruta de la fotografía servida desde `/uploads` |
+| `photo_url` | VARCHAR(300) | Dirección desde la que se sirve la fotografía |
+| `photo` | BYTEA | La fotografía, normalizada a WEBP de 512×512 |
+| `photo_mime` | VARCHAR(40) | Tipo de la imagen guardada |
 | `user_id` | UUID FK único | Cuenta de acceso; `null` si no marca por sí mismo |
 
 #### `subjects`

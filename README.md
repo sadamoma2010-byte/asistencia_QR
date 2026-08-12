@@ -47,9 +47,12 @@ ASISTENCIA_QR_2026_SENA/
 ├── herramientas/         comprobaciones ejecutables
 ├── scripts/              arranque, parada, base de datos y publicación
 ├── database.sql          estructura completa de la base
-├── uploads/              fotografías de los docentes (fuera del repositorio)
 └── .env                  conexión y secretos (fuera del repositorio)
 ```
+
+Las fotografías de los docentes se guardan **dentro de la base de datos**, no
+en el disco: así viajan con el respaldo y no quedan archivos huérfanos al dar
+de baja a alguien.
 
 Cada módulo conserva la separación que tenía en NestJS: `rutas.py` por
 controlador, `servicio.py` por servicio y `esquemas.py` por DTO.
@@ -179,6 +182,17 @@ Todas se ejecutan contra la base real y retiran lo que crean.
 | `.venv\Scripts\python herramientas\probar_crud.py` | Alta, edición, relaciones y baja en cada módulo |
 | `.venv\Scripts\python herramientas\probar_qr.py` | Que el QR lleve a una dirección alcanzable y sirva a todos |
 | `.venv\Scripts\python herramientas\probar_borrado.py` | Borrado múltiple, sus barreras y su rastro en auditoría |
+| `.venv\Scripts\python herramientas\probar_fotos.py` | Que la fotografía se guarde en la base y se sirva bien |
+
+Y una utilidad que solo se ejecuta una vez, al actualizar desde una versión
+anterior a la 3.4:
+
+```bash
+.venv\Scripts\python herramientas\migrar_fotos.py
+```
+
+Añade las columnas de la fotografía y traslada a la base las imágenes que
+estuvieran en `uploads/teachers/`.
 
 ---
 

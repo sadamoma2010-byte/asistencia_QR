@@ -21,6 +21,7 @@ from ...comun.errores import SolicitudInvalida
 from ...comun.peticion import ContextoPeticion
 from ...comun.seguridad import UsuarioAutenticado
 from ...comun.tiempo import iso
+from ...comun.validaciones import exigir_identificador
 from ...extensiones import bd
 from ...modelos import (
     AccionAuditoria,
@@ -411,6 +412,17 @@ class ServicioDocentes(ServicioCRUD):
     # ── Fotografía ───────────────────────────────────────────────────
 
     @classmethod
+    def ruta_foto(cls, identificador: str) -> str:
+        """
+        Dirección pública desde la que se sirve la fotografía.
+
+        Lleva la marca del momento en que se subió para que el navegador no
+        muestre la anterior tras un cambio: sin ella, la imagen queda en la
+        caché y parece que la subida no hizo nada.
+        """
+        return f"/api/v1/teachers/{identificador}/photo?v={int(time.time())}"
+
+    @classmethod
     def subir_foto(
         cls,
         identificador: str,
@@ -419,22 +431,22 @@ class ServicioDocentes(ServicioCRUD):
         ctx: ContextoPeticion,
     ) -> dict:
         docente = cls.buscar(identificador)
-        anterior = docente.photo_url
 
-        docente.photo_url = subidas.guardar_foto(archivo)
+        contenido, tipo = subidas.normalizar_foto(archivo)
+        docente.photo = contenido
+        docente.photo_mime = tipo
+        docente.photo_url = cls.ruta_foto(identificador)
 
         auditoria.anotar(
             AccionAuditoria.ACTUALIZAR,
             cls.modulo,
             f"Actualizó la fotografía del docente {docente.code}",
             entidad_id=identificador,
+            detalle={"tamano": len(contenido), "tipo": tipo},
             usuario=actor,
             ctx=ctx,
         )
         bd.session.commit()
-
-        # La anterior se borra solo cuando la nueva ya está guardada
-        subidas.borrar_foto(anterior)
         return cls.serializar(docente)
 
     @classmethod
@@ -442,7 +454,9 @@ class ServicioDocentes(ServicioCRUD):
         cls, identificador: str, actor: UsuarioAutenticado, ctx: ContextoPeticion
     ) -> dict:
         docente = cls.buscar(identificador)
-        anterior = docente.photo_url
+
+        docente.photo = None
+        docente.photo_mime = None
         docente.photo_url = None
 
         auditoria.anotar(
@@ -454,6 +468,17 @@ class ServicioDocentes(ServicioCRUD):
             ctx=ctx,
         )
         bd.session.commit()
-
-        subidas.borrar_foto(anterior)
         return cls.serializar(docente)
+
+    @classmethod
+    def leer_foto(cls, identificador: str) -> tuple[bytes, str] | None:
+        """Contenido de la fotografía, o None si el docente no tiene."""
+        exigir_identificador(identificador)
+
+        fila = bd.session.execute(
+            select(Docente.photo, Docente.photo_mime).where(Docente.id == identificador)
+        ).one_or_none()
+
+        if fila is None or fila.photo is None:
+            return None
+        return bytes(fila.photo), fila.photo_mime or "image/webp"

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, request
+from flask import Blueprint, Response, request
 
 from ...comun.excel import Columna
 from ...comun.peticion import contexto
 from ...comun.respuestas import responder
 from ...comun.rutas_crud import Exportacion, registrar_crud
-from ...comun.seguridad import exigir_usuario, requiere_permisos
+from ...comun.seguridad import exigir_usuario, requiere_permisos, requiere_sesion
 from ...comun.tiempo import formato_fecha_hora
 from .esquemas import ActualizarDocente, AsignarAsignaturas, CrearDocente
 from .servicio import (
@@ -37,6 +37,33 @@ def asignar_asignaturas(identificador: str):
         ServicioDocentes.asignar_asignaturas(
             identificador, datos.subjectIds, exigir_usuario(), contexto()
         )
+    )
+
+
+@bp.get("/teachers/<identificador>/photo")
+@requiere_sesion
+def ver_foto(identificador: str):
+    """
+    Sirve la fotografía guardada en la base.
+
+    Basta con tener sesión: la foto aparece en listados, en la ficha y en la
+    pantalla de marcación, y no todos esos usuarios tienen permiso de lectura
+    sobre el módulo de docentes.
+    """
+    imagen = ServicioDocentes.leer_foto(identificador)
+    if imagen is None:
+        return Response(status=404)
+
+    contenido, tipo = imagen
+    return Response(
+        contenido,
+        mimetype=tipo,
+        headers={
+            # La dirección lleva marca de tiempo: al cambiar la foto cambia la
+            # dirección, así que el navegador puede guardarla sin miedo.
+            "Cache-Control": "private, max-age=604800",
+            "Content-Length": str(len(contenido)),
+        },
     )
 
 

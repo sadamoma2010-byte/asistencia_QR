@@ -124,7 +124,13 @@ CREATE TABLE "teachers" (
     "document" VARCHAR(40) NOT NULL,
     "email" VARCHAR(200) NOT NULL,
     "phone" VARCHAR(30),
+    -- Ruta publica desde la que se sirve la fotografia
     "photo_url" VARCHAR(300),
+    -- La fotografia se guarda aqui, no en el disco: asi viaja con el
+    -- respaldo de la base y no quedan archivos huerfanos al eliminar.
+    -- Se normaliza a WEBP de 512x512, unos 10 KB por docente.
+    "photo" BYTEA,
+    "photo_mime" VARCHAR(40),
     "status" "record_status" NOT NULL DEFAULT 'ACTIVE',
     "user_id" UUID,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -124,11 +124,14 @@ def main() -> int:
             for d in docentes
         }
 
-    comprobar(
-        "Hay docentes con cuenta de acceso",
-        len(docentes) > 0,
-        f"{len(docentes)} docente(s)",
-    )
+    # Que no haya docentes con cuenta no es un defecto del QR: es que falta
+    # vincularlas. Se avisa bien claro, porque sin cuenta nadie puede marcar.
+    if docentes:
+        comprobar("Docentes con cuenta de acceso", True, f"{len(docentes)}")
+    else:
+        print("    ⚠ Ningún docente tiene cuenta de acceso vinculada.")
+        print("      El QR funciona, pero nadie podrá marcar hasta asignarlas")
+        print("      en Docentes → Editar → Cuenta de acceso.")
 
     # ── Sin sesión, el QR lleva al acceso y de ahí a marcar ──────────
     anonimo = app.test_client()

@@ -57,15 +57,15 @@ def crear_app(config: type[Config] | None = None) -> Flask:
     # ── Módulos ──────────────────────────────────────────────────────
     _registrar_modulos(app)
 
-    # ── Archivos subidos ─────────────────────────────────────────────
-    # Fuera del prefijo /api para poder referenciarlos desde una etiqueta <img>,
-    # igual que en el sistema anterior.
-    ajustes.CARPETA_SUBIDAS.mkdir(parents=True, exist_ok=True)
-    (ajustes.CARPETA_SUBIDAS / "teachers").mkdir(exist_ok=True)
+    # ── Fotografías guardadas antes de la versión 3.4 ────────────────
+    # Ahora las imágenes viven en la base de datos y se sirven desde el propio
+    # módulo de docentes. Esta ruta solo atiende las que quedaran en el disco
+    # de una instalación anterior; `herramientas/migrar_fotos.py` las traslada.
+    if ajustes.CARPETA_SUBIDAS.is_dir():
 
-    @app.route("/uploads/<path:recurso>")
-    def archivos_subidos(recurso: str):
-        return send_from_directory(ajustes.CARPETA_SUBIDAS, recurso, max_age=604_800)
+        @app.route("/uploads/<path:recurso>")
+        def archivos_subidos(recurso: str):
+            return send_from_directory(ajustes.CARPETA_SUBIDAS, recurso, max_age=604_800)
 
     # ── Comprobación de estado ───────────────────────────────────────
     @app.route(f"{ajustes.PREFIJO_API}/health")
