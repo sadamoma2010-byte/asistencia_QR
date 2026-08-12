@@ -16,6 +16,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from herramientas.consola import preparar
+
+preparar()
+
 from sqlalchemy import delete, select
 
 from aplicacion import crear_app

@@ -34,6 +34,15 @@
     EARLY_DEPARTURE: ['Salida anticipada', 'bg-destructive/10 text-red-700 border-destructive/20'],
   };
 
+  // Los cuatro niveles de la Ley 115 de 1994, en el orden de la escalera
+  // educativa. El color los distingue de un vistazo en el listado.
+  const NIVELES = {
+    PREESCOLAR: ['Preescolar', 'bg-accent text-accent-foreground border-primary/20'],
+    BASICA_PRIMARIA: ['Básica primaria', 'bg-primary/10 text-indigo-700 border-primary/20'],
+    BASICA_SECUNDARIA: ['Básica secundaria', 'bg-warning/10 text-amber-700 border-warning/20'],
+    MEDIA: ['Educación media', 'bg-success/10 text-emerald-700 border-success/20'],
+  };
+
   const ACCIONES = {
     CREATE: 'Creación', UPDATE: 'Actualización', DELETE: 'Eliminación',
     ACTIVATE: 'Activación', DEACTIVATE: 'Inactivación', LOGIN: 'Inicio de sesión',
@@ -125,6 +134,20 @@
           .join('')}</div>`;
       }
 
+      case 'cursos': {
+        const lista = fila.courses || [];
+        if (!lista.length) return '<span class="text-muted-foreground">—</span>';
+        return `<div class="flex flex-wrap gap-1">${lista
+          .map(
+            (c) =>
+              `<span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs
+                            ${c.isHomeroom ? 'border-primary/30 bg-primary/10 text-indigo-700' : 'border-border bg-muted'}"
+                     title="${esc(c.gradeName)}${c.isHomeroom ? ' · Director de grupo' : ''}">
+                 ${esc(c.name)}${c.isHomeroom ? ' ★' : ''}</span>`,
+          )
+          .join('')}</div>`;
+      }
+
       case 'estado': {
         const [texto, clases] = ESTADOS[bruto] || ['—', 'bg-muted text-muted-foreground border-border'];
         return insignia(texto, clases);
@@ -151,6 +174,24 @@
             <p class="truncate font-medium text-foreground">${esc(fila.description)}</p>
             <p class="truncate text-xs text-muted-foreground">${esc(fila.userName || 'Sistema')} · ${esc(fila.userEmail || '')}</p>
           </div>`;
+
+      case 'nivel': {
+        const [texto, clases] = NIVELES[bruto] || ['—', 'bg-muted text-muted-foreground border-border'];
+        return insignia(texto, clases);
+      }
+
+      case 'docente_director':
+        return fila.homeroomTeacher
+          ? `<div class="min-w-0">
+               <p class="truncate text-foreground">${esc(fila.homeroomTeacher.firstName)} ${esc(fila.homeroomTeacher.lastName)}</p>
+               <p class="truncate text-xs text-muted-foreground">${esc(fila.homeroomTeacher.code)}</p>
+             </div>`
+          : '<span class="text-muted-foreground">Sin asignar</span>';
+
+      case 'cupo':
+        return bruto
+          ? `<span class="whitespace-nowrap">${bruto} estudiantes</span>`
+          : '<span class="text-muted-foreground">—</span>';
 
       case 'insignia':
         return insignia(bruto ?? '—', 'bg-muted text-foreground border-border');

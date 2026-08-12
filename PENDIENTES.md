@@ -20,6 +20,9 @@ razonable y **configurable** en cada caso, para no bloquear la puesta en producc
 | 13 | **Motor de base de datos** | PostgreSQL 16 | `database.sql` y `aplicacion/modelos/` |
 | 14 | **Volumen de marcaciones simultáneas** | PostgreSQL admite escritura concurrente sin límite práctico para este caso | — |
 | 15 | **Política de respaldo** | No automatizada. El respaldo se hace con `pg_dump -U postgres asistencia_qr` | — |
+| 16 | **Grados que ofrece la institución** | Los catorce de la Ley 115; prejardín y jardín llegan inactivos por no ser obligatorios | Módulo Grados |
+| 17 | **Cursos por grado** | Un grupo «A» en cada grado activo. Las demás letras se abren según la matrícula | Módulo Cursos |
+| 18 | **Estudiantes** | Fuera de alcance: el sistema controla la asistencia docente, no la matrícula. El cupo del curso es informativo | — |
 
 ## Fuera de alcance V1 (confirmado en el brief)
 

@@ -33,6 +33,15 @@ ICONOS = {
         '<path d="M4 5.5A1.5 1.5 0 015.5 4H19v15H5.5A1.5 1.5 0 004 20.5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
         '<path d="M8 8h7M8 11.5h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
     ),
+    "grados": _icono(
+        '<path d="M12 4L2.5 8.5 12 13l9.5-4.5L12 4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
+        '<path d="M6 10.5V16c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    ),
+    "cursos": _icono(
+        '<rect x="3" y="4" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.6"/>'
+        '<path d="M8 20h8M12 17v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+        '<path d="M7 8.5h6M7 12h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+    ),
     "jornadas": _icono(
         '<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/>'
         '<path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
@@ -92,6 +101,8 @@ ESTRUCTURA = (
         (
             ("/docentes", "Docentes", "docentes", "teachers.read"),
             ("/asignaturas", "Asignaturas", "asignaturas", "subjects.read"),
+            ("/grados", "Grados", "grados", "grades.read"),
+            ("/cursos", "Cursos", "cursos", "courses.read"),
             ("/jornadas", "Jornadas", "jornadas", "shifts.read"),
             ("/horarios", "Horarios", "horarios", "schedules.read"),
         ),

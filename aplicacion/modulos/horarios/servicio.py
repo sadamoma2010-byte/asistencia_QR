@@ -17,8 +17,10 @@ from ...comun.tiempo import DIAS, hora_a_minutos
 from ...extensiones import bd
 from ...modelos import (
     Asignatura,
+    Curso,
     Docente,
     DocenteAsignatura,
+    DocenteCurso,
     EstadoRegistro,
     Horario,
     Jornada,
@@ -74,6 +76,7 @@ class ServicioHorarios(ServicioCRUD):
             ("teacherId", Horario.teacher_id),
             ("shiftId", Horario.shift_id),
             ("subjectId", Horario.subject_id),
+            ("courseId", Horario.course_id),
         ):
             valor = request.args.get(parametro)
             if valor:
@@ -90,11 +93,13 @@ class ServicioHorarios(ServicioCRUD):
     @classmethod
     def serializar(cls, fila: Horario) -> dict:
         docente, jornada, asignatura = fila.docente, fila.jornada, fila.asignatura
+        curso = fila.curso
         return {
             **cls.campos_comunes(fila),
             "teacherId": fila.teacher_id,
             "shiftId": fila.shift_id,
             "subjectId": fila.subject_id,
+            "courseId": fila.course_id,
             "dayOfWeek": fila.day_of_week,
             "dayName": etiqueta_dia(fila.day_of_week),
             "checkInTime": fila.check_in_time,
@@ -116,6 +121,16 @@ class ServicioHorarios(ServicioCRUD):
                     "color": asignatura.color,
                 }
                 if asignatura
+                else None
+            ),
+            "course": (
+                {
+                    "id": curso.id,
+                    "name": curso.name,
+                    "gradeId": curso.grade_id,
+                    "gradeName": curso.grado.name,
+                }
+                if curso
                 else None
             ),
         }
@@ -143,6 +158,7 @@ class ServicioHorarios(ServicioCRUD):
             teacher_id=datos["teacherId"],
             shift_id=datos["shiftId"],
             subject_id=datos.get("subjectId") or None,
+            course_id=datos.get("courseId") or None,
             day_of_week=datos.get("dayOfWeek"),
             check_in_time=datos["checkInTime"],
             check_out_time=datos["checkOutTime"],
@@ -158,6 +174,8 @@ class ServicioHorarios(ServicioCRUD):
             fila.shift_id = datos["shiftId"]
         if "subjectId" in datos:
             fila.subject_id = datos["subjectId"] or None
+        if "courseId" in datos:
+            fila.course_id = datos["courseId"] or None
         if "dayOfWeek" in datos:
             fila.day_of_week = datos["dayOfWeek"]
         if datos.get("checkInTime") is not None:
@@ -234,6 +252,37 @@ class ServicioHorarios(ServicioCRUD):
             )
 
     @classmethod
+    def _curso_del_docente(cls, docente_id: str, curso_id: str | None) -> None:
+        """
+        El curso del horario debe estar entre los que atiende el docente.
+
+        Misma idea que con la asignatura: la franja no puede declarar un grupo
+        al que ese docente no entra.
+        """
+        if not curso_id:
+            return
+
+        curso = bd.session.execute(
+            select(Curso).where(Curso.id == curso_id, Curso.deleted_at.is_(None))
+        ).scalar_one_or_none()
+        if curso is None:
+            raise SolicitudInvalida("El curso seleccionado no existe")
+        if curso.status != EstadoRegistro.ACTIVO:
+            raise SolicitudInvalida(f"El curso {curso.name} está inactivo")
+
+        vinculo = bd.session.execute(
+            select(DocenteCurso).where(
+                DocenteCurso.teacher_id == docente_id,
+                DocenteCurso.course_id == curso_id,
+            )
+        ).scalar_one_or_none()
+        if vinculo is None:
+            raise SolicitudInvalida(
+                f"El docente no atiende el curso {curso.name}. "
+                "Asígneselo primero en su ficha."
+            )
+
+    @classmethod
     def _rango_valido(cls, entrada: str, salida: str) -> None:
         if hora_a_minutos(salida) <= hora_a_minutos(entrada):
             raise SolicitudInvalida("La hora de salida debe ser posterior a la hora de entrada")
@@ -277,6 +326,7 @@ class ServicioHorarios(ServicioCRUD):
     def gancho_antes_de_crear(cls, datos: dict) -> None:
         cls._referencias(datos["teacherId"], datos["shiftId"])
         cls._asignatura_del_docente(datos["teacherId"], datos.get("subjectId"))
+        cls._curso_del_docente(datos["teacherId"], datos.get("courseId"))
         cls._rango_valido(datos["checkInTime"], datos["checkOutTime"])
         cls._sin_cruces(
             datos["teacherId"],
@@ -294,8 +344,10 @@ class ServicioHorarios(ServicioCRUD):
         entrada = datos.get("checkInTime") or fila.check_in_time
         salida = datos.get("checkOutTime") or fila.check_out_time
         asignatura_id = datos["subjectId"] if "subjectId" in datos else fila.subject_id
+        curso_id = datos["courseId"] if "courseId" in datos else fila.course_id
 
         cls._referencias(docente_id, jornada_id)
         cls._asignatura_del_docente(docente_id, asignatura_id)
+        cls._curso_del_docente(docente_id, curso_id)
         cls._rango_valido(entrada, salida)
         cls._sin_cruces(docente_id, dia, entrada, salida, excluir=fila.id)

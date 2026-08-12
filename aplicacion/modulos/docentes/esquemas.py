@@ -20,6 +20,7 @@ class CrearDocente(BaseModel):
     userId: str | None = None
     status: EstadoRegistro | None = None
     subjectIds: list[str] | None = None
+    courseIds: list[str] | None = None
 
 
 class ActualizarDocente(BaseModel):
@@ -39,3 +40,9 @@ class AsignarAsignaturas(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     subjectIds: list[str] = Field(default_factory=list, max_length=200)
+
+
+class AsignarCursos(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    courseIds: list[str] = Field(default_factory=list, max_length=200)

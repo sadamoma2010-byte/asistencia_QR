@@ -8,17 +8,28 @@ crean ni se alteran estructuras: `database.sql` sigue siendo la única fuente
 de la definición de la base.
 """
 
-from .academico import Asignatura, Docente, DocenteAsignatura, Horario, Jornada
+from .academico import (
+    Asignatura,
+    Curso,
+    Docente,
+    DocenteAsignatura,
+    DocenteCurso,
+    Grado,
+    Horario,
+    Jornada,
+)
 from .acceso import Permiso, Rol, RolPermiso, SesionRefresco, Usuario
 from .base import BorradoLogico, ConEstado, MarcasTiempo, nuevo_id
 from .enumeraciones import (
     ETIQUETA_ACCION_AUDITORIA,
     ETIQUETA_ESTADO_MARCACION,
     ETIQUETA_ESTADO_REGISTRO,
+    ETIQUETA_NIVEL_EDUCATIVO,
     ETIQUETA_TIPO_MARCACION,
     AccionAuditoria,
     EstadoMarcacion,
     EstadoRegistro,
+    NivelEducativo,
     TipoAjuste,
     TipoMarcacion,
 )
@@ -35,6 +46,9 @@ __all__ = [
     "Docente",
     "Asignatura",
     "DocenteAsignatura",
+    "Grado",
+    "Curso",
+    "DocenteCurso",
     "Jornada",
     "Horario",
     # Operación
@@ -47,10 +61,12 @@ __all__ = [
     "EstadoMarcacion",
     "AccionAuditoria",
     "TipoAjuste",
+    "NivelEducativo",
     "ETIQUETA_ESTADO_MARCACION",
     "ETIQUETA_TIPO_MARCACION",
     "ETIQUETA_ACCION_AUDITORIA",
     "ETIQUETA_ESTADO_REGISTRO",
+    "ETIQUETA_NIVEL_EDUCATIVO",
     # Base
     "MarcasTiempo",
     "BorradoLogico",

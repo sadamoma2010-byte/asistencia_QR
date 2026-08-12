@@ -42,6 +42,7 @@ registrar_crud(
             Columna("Código", 14, valor=lambda f: f.docente.code),
             Columna("Jornada", 20, valor=lambda f: f.jornada.name),
             Columna("Asignatura", 26, valor=lambda f: f.asignatura.name if f.asignatura else "—"),
+            Columna("Curso", 14, valor=lambda f: f.curso.name if f.curso else "—"),
             Columna("Día", 16, valor=lambda f: etiqueta_dia(f.day_of_week)),
             Columna("Entrada", 12, valor=lambda f: f.check_in_time),
             Columna("Salida", 12, valor=lambda f: f.check_out_time),

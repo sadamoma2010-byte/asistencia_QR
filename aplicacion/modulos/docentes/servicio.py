@@ -24,11 +24,15 @@ from ...comun.tiempo import iso
 from ...comun.validaciones import exigir_identificador
 from ...extensiones import bd
 from ...modelos import (
+    ETIQUETA_NIVEL_EDUCATIVO,
     AccionAuditoria,
     Asignatura,
+    Curso,
     Docente,
     DocenteAsignatura,
+    DocenteCurso,
     EstadoRegistro,
+    Grado,
     Horario,
     Marcacion,
     Usuario,
@@ -61,6 +65,32 @@ def _asignaturas_de(docente_id: str) -> list[dict]:
         .order_by(DocenteAsignatura.created_at.asc())
     ).scalars()
     return [{"id": a.id, "code": a.code, "name": a.name, "color": a.color} for a in filas]
+
+
+def _cursos_de(docente_id: str) -> list[dict]:
+    """Cursos que atiende el docente, en el orden de la escalera educativa."""
+    filas = bd.session.execute(
+        select(Curso)
+        .join(DocenteCurso, DocenteCurso.course_id == Curso.id)
+        .join(Grado, Grado.id == Curso.grade_id)
+        .where(DocenteCurso.teacher_id == docente_id, Curso.deleted_at.is_(None))
+        .order_by(Grado.position.asc(), Curso.letter.asc())
+    ).scalars()
+    return [
+        {
+            "id": c.id,
+            "name": c.name,
+            "letter": c.letter,
+            "gradeId": c.grade_id,
+            "gradeName": c.grado.name,
+            "level": c.grado.level.value,
+            "levelName": ETIQUETA_NIVEL_EDUCATIVO.get(
+                c.grado.level.value, c.grado.level.value
+            ),
+            "isHomeroom": c.homeroom_teacher_id == docente_id,
+        }
+        for c in filas
+    ]
 
 
 class ServicioDocentes(ServicioCRUD):
@@ -114,6 +144,24 @@ class ServicioDocentes(ServicioCRUD):
                     )
                 )
             )
+
+        curso_id = request.args.get("courseId")
+        if curso_id:
+            consulta = consulta.where(
+                Docente.id.in_(
+                    select(DocenteCurso.teacher_id).where(DocenteCurso.course_id == curso_id)
+                )
+            )
+
+        grado_id = request.args.get("gradeId")
+        if grado_id:
+            consulta = consulta.where(
+                Docente.id.in_(
+                    select(DocenteCurso.teacher_id)
+                    .join(Curso, Curso.id == DocenteCurso.course_id)
+                    .where(Curso.grade_id == grado_id, Curso.deleted_at.is_(None))
+                )
+            )
         return consulta
 
     @classmethod
@@ -142,6 +190,9 @@ class ServicioDocentes(ServicioCRUD):
             # La relación muchos a muchos se aplana: el cliente recibe las
             # asignaturas directamente, sin la tabla puente.
             "subjects": _asignaturas_de(fila.id),
+            # Un docente puede pertenecer a uno o varios cursos: los de
+            # asignatura y, si es director de grupo, el suyo propio.
+            "courses": _cursos_de(fila.id),
             "_count": {
                 "schedules": _contar_horarios(fila.id),
                 "attendances": _contar_marcaciones(fila.id),
@@ -244,6 +295,14 @@ class ServicioDocentes(ServicioCRUD):
                     created_at=datetime.now(timezone.utc),
                 )
             )
+        for curso_id in dict.fromkeys(datos.get("courseIds") or []):
+            bd.session.add(
+                DocenteCurso(
+                    teacher_id=fila.id,
+                    course_id=curso_id,
+                    created_at=datetime.now(timezone.utc),
+                )
+            )
 
     @classmethod
     def aplicar_cambios(cls, fila: Docente, datos: dict) -> None:
@@ -340,6 +399,17 @@ class ServicioDocentes(ServicioCRUD):
                 f"No es posible eliminar el docente: tiene {marcaciones} marcación(es) "
                 "registrada(s). La asistencia es evidencia y no se descarta."
             )
+
+        dirigidos = bd.session.execute(
+            select(Curso.name)
+            .where(Curso.homeroom_teacher_id == fila.id, Curso.deleted_at.is_(None))
+            .order_by(Curso.name.asc())
+        ).scalars().all()
+        if dirigidos:
+            return (
+                "No es posible eliminar el docente: es director de grupo de "
+                f"{', '.join(dirigidos)}. Nombre primero otro director."
+            )
         return None
 
     @classmethod
@@ -347,6 +417,7 @@ class ServicioDocentes(ServicioCRUD):
         bd.session.execute(
             delete(DocenteAsignatura).where(DocenteAsignatura.teacher_id == fila.id)
         )
+        bd.session.execute(delete(DocenteCurso).where(DocenteCurso.teacher_id == fila.id))
 
     # ── Asignaturas que dicta ────────────────────────────────────────
 
@@ -403,6 +474,63 @@ class ServicioDocentes(ServicioCRUD):
             f"Asignó {len(asignaturas_ids)} asignatura(s) al docente {docente.code}",
             entidad_id=identificador,
             detalle={"subjectIds": asignaturas_ids},
+            usuario=actor,
+            ctx=ctx,
+        )
+        bd.session.commit()
+        return cls.obtener(identificador)
+
+    # ── Cursos que atiende ───────────────────────────────────────────
+
+    @classmethod
+    def asignar_cursos(
+        cls,
+        identificador: str,
+        cursos_ids: list[str],
+        actor: UsuarioAutenticado,
+        ctx: ContextoPeticion,
+    ) -> dict:
+        """Reemplaza el listado de cursos que atiende el docente."""
+        docente = cls.buscar(identificador)
+
+        validos = bd.session.execute(
+            select(func.count())
+            .select_from(Curso)
+            .where(Curso.id.in_(cursos_ids), Curso.deleted_at.is_(None))
+        ).scalar_one()
+        if validos != len(set(cursos_ids)):
+            raise SolicitudInvalida("Uno o más cursos seleccionados no existen")
+
+        # Un docente no puede dejar de atender el curso que dirige: sería
+        # director de un grupo con el que ya no tiene vínculo.
+        consulta = select(Curso.name).where(
+            Curso.homeroom_teacher_id == identificador, Curso.deleted_at.is_(None)
+        )
+        if cursos_ids:
+            consulta = consulta.where(Curso.id.notin_(cursos_ids))
+        dirigidos = bd.session.execute(consulta.order_by(Curso.name.asc())).scalars().all()
+        if dirigidos:
+            raise SolicitudInvalida(
+                f"El docente dirige {', '.join(dirigidos)}: no puede retirarse de "
+                "esos cursos mientras sea su director de grupo"
+            )
+
+        bd.session.execute(delete(DocenteCurso).where(DocenteCurso.teacher_id == identificador))
+        for curso_id in dict.fromkeys(cursos_ids):
+            bd.session.add(
+                DocenteCurso(
+                    teacher_id=identificador,
+                    course_id=curso_id,
+                    created_at=datetime.now(timezone.utc),
+                )
+            )
+
+        auditoria.anotar(
+            AccionAuditoria.ACTUALIZAR,
+            cls.modulo,
+            f"Asignó {len(cursos_ids)} curso(s) al docente {docente.code}",
+            entidad_id=identificador,
+            detalle={"courseIds": cursos_ids},
             usuario=actor,
             ctx=ctx,
         )

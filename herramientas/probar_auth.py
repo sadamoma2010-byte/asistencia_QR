@@ -15,6 +15,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from herramientas.consola import preparar
+
+preparar()
+
 from flask import Flask
 
 from aplicacion.comun.errores import registrar_manejadores

@@ -8,11 +8,20 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, LargeBinary, SmallInteger, String
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    LargeBinary,
+    SmallInteger,
+    String,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensiones import bd
-from .base import BorradoLogico, ConEstado, MarcasTiempo, columna_uuid, nuevo_id
+from .base import BorradoLogico, ConEstado, MarcasTiempo, columna_uuid, enum_sql, nuevo_id
+from .enumeraciones import NivelEducativo
 
 
 class Asignatura(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):
@@ -76,6 +85,13 @@ class Docente(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):
     asignaturas: Mapped[list["DocenteAsignatura"]] = relationship(
         back_populates="docente", cascade="all, delete-orphan"
     )
+    cursos: Mapped[list["DocenteCurso"]] = relationship(
+        back_populates="docente", cascade="all, delete-orphan"
+    )
+    # Cursos de los que es director de grupo
+    cursos_dirigidos: Mapped[list["Curso"]] = relationship(
+        back_populates="director", foreign_keys="Curso.homeroom_teacher_id"
+    )
     horarios: Mapped[list["Horario"]] = relationship(back_populates="docente")
     marcaciones: Mapped[list["Marcacion"]] = relationship(back_populates="docente")
 
@@ -107,6 +123,98 @@ class DocenteAsignatura(bd.Model):
     asignatura: Mapped[Asignatura] = relationship(back_populates="docentes")
 
 
+class Grado(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):
+    """
+    Grados del servicio educativo formal, según la Ley 115 de 1994.
+
+    La escalera la fija la ley, no la institución: los catorce grados vienen
+    cargados y marcados como del sistema. Lo que cada colegio decide es cuáles
+    ofrece —activándolos o inactivándolos— y qué cursos abre en cada uno.
+    """
+
+    __tablename__ = "grades"
+
+    id: Mapped[str] = columna_uuid(primary_key=True, default=nuevo_id)
+    code: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    level: Mapped[NivelEducativo] = enum_sql(
+        NivelEducativo, "education_level", nullable=False
+    )
+    # Lugar en la escalera educativa: 1 = prejardín … 14 = once
+    position: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    description: Mapped[str | None] = mapped_column(String(300))
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    cursos: Mapped[list["Curso"]] = relationship(back_populates="grado")
+
+    __table_args__ = (
+        Index("grades_level_position_idx", "level", "position"),
+        Index("grades_status_deleted_at_idx", "status", "deleted_at"),
+    )
+
+
+class Curso(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):
+    """Curso o grupo de un grado: 6A, 6B, 6C."""
+
+    __tablename__ = "courses"
+
+    id: Mapped[str] = columna_uuid(primary_key=True, default=nuevo_id)
+
+    grade_id: Mapped[str] = columna_uuid(
+        ForeignKey("grades.id", ondelete="RESTRICT", onupdate="CASCADE"), nullable=False
+    )
+    grado: Mapped[Grado] = relationship(back_populates="cursos", lazy="joined")
+
+    # Letra o denominación del grupo dentro del grado
+    letter: Mapped[str] = mapped_column(String(10), nullable=False)
+    # Nombre ya compuesto («6A»), guardado resuelto para buscar y ordenar
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+
+    shift_id: Mapped[str | None] = columna_uuid(
+        ForeignKey("shifts.id", ondelete="SET NULL", onupdate="CASCADE")
+    )
+    jornada: Mapped["Jornada | None"] = relationship(back_populates="cursos", lazy="joined")
+
+    # Director de grupo
+    homeroom_teacher_id: Mapped[str | None] = columna_uuid(
+        ForeignKey("teachers.id", ondelete="SET NULL", onupdate="CASCADE")
+    )
+    director: Mapped["Docente | None"] = relationship(
+        back_populates="cursos_dirigidos", lazy="joined", foreign_keys=[homeroom_teacher_id]
+    )
+
+    capacity: Mapped[int | None] = mapped_column(SmallInteger)
+
+    docentes: Mapped[list["DocenteCurso"]] = relationship(
+        back_populates="curso", cascade="all, delete-orphan"
+    )
+    horarios: Mapped[list["Horario"]] = relationship(back_populates="curso")
+
+    __table_args__ = (
+        Index("courses_grade_id_idx", "grade_id"),
+        Index("courses_shift_id_idx", "shift_id"),
+        Index("courses_homeroom_teacher_id_idx", "homeroom_teacher_id"),
+        Index("courses_status_deleted_at_idx", "status", "deleted_at"),
+    )
+
+
+class DocenteCurso(bd.Model):
+    """Cursos que atiende cada docente (relación muchos a muchos)."""
+
+    __tablename__ = "teacher_courses"
+
+    teacher_id: Mapped[str] = columna_uuid(
+        ForeignKey("teachers.id", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True
+    )
+    course_id: Mapped[str] = columna_uuid(
+        ForeignKey("courses.id", ondelete="CASCADE", onupdate="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    docente: Mapped["Docente"] = relationship(back_populates="cursos")
+    curso: Mapped[Curso] = relationship(back_populates="docentes")
+
+
 class Jornada(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):
     """Franjas institucionales sobre las que se arman los horarios."""
 
@@ -117,6 +225,7 @@ class Jornada(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):
     description: Mapped[str | None] = mapped_column(String(300))
 
     horarios: Mapped[list["Horario"]] = relationship(back_populates="jornada")
+    cursos: Mapped[list["Curso"]] = relationship(back_populates="jornada")
 
     __table_args__ = (Index("shifts_status_deleted_at_idx", "status", "deleted_at"),)
 
@@ -144,6 +253,12 @@ class Horario(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):
     )
     asignatura: Mapped[Asignatura | None] = relationship(back_populates="horarios", lazy="joined")
 
+    # Curso al que se dicta esa franja
+    course_id: Mapped[str | None] = columna_uuid(
+        ForeignKey("courses.id", ondelete="SET NULL", onupdate="CASCADE")
+    )
+    curso: Mapped[Curso | None] = relationship(back_populates="horarios", lazy="joined")
+
     # 0 = domingo … 6 = sábado. Nulo aplica a todos los días.
     day_of_week: Mapped[int | None] = mapped_column(SmallInteger)
 
@@ -161,4 +276,5 @@ class Horario(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):
         Index("schedules_teacher_id_day_of_week_idx", "teacher_id", "day_of_week"),
         Index("schedules_shift_id_idx", "shift_id"),
         Index("schedules_subject_id_idx", "subject_id"),
+        Index("schedules_course_id_idx", "course_id"),
     )

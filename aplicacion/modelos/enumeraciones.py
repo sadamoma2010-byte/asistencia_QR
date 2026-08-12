@@ -58,6 +58,21 @@ class TipoAjuste(str, Enum):
     JSON = "JSON"
 
 
+class NivelEducativo(str, Enum):
+    """
+    Tipo `education_level`.
+
+    Niveles del servicio educativo formal según la Ley 115 de 1994. Los
+    valores conservan la denominación legal: no son etiquetas traducibles,
+    son las categorías que define la norma.
+    """
+
+    PREESCOLAR = "PREESCOLAR"              # art. 15-18
+    BASICA_PRIMARIA = "BASICA_PRIMARIA"    # art. 21, grados 1 a 5
+    BASICA_SECUNDARIA = "BASICA_SECUNDARIA"  # art. 22, grados 6 a 9
+    MEDIA = "MEDIA"                        # art. 27-35, grados 10 y 11
+
+
 # ── Etiquetas en español, para la interfaz y las exportaciones ──────
 # Se indexan por el valor almacenado, no por el miembro, porque es lo que
 # llega desde la base y desde los parámetros de consulta.
@@ -87,4 +102,11 @@ ETIQUETA_ACCION_AUDITORIA = {
 ETIQUETA_ESTADO_REGISTRO = {
     "ACTIVE": "Activo",
     "INACTIVE": "Inactivo",
+}
+
+ETIQUETA_NIVEL_EDUCATIVO = {
+    "PREESCOLAR": "Preescolar",
+    "BASICA_PRIMARIA": "Básica primaria",
+    "BASICA_SECUNDARIA": "Básica secundaria",
+    "MEDIA": "Educación media",
 }

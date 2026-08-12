@@ -18,7 +18,7 @@ from .comun.errores import registrar_manejadores
 from .config import ORIGEN_ENTORNO, Config, obtener_config
 from .extensiones import bd, limitador
 
-__version__ = "3.0.0"
+__version__ = "3.6.0"
 
 
 def crear_app(config: type[Config] | None = None) -> Flask:
@@ -111,6 +111,8 @@ MODULOS_API = (
     "permisos",
     "docentes",
     "asignaturas",
+    "grados",
+    "cursos",
     "jornadas",
     "horarios",
     "asistencia",

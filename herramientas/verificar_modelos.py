@@ -15,6 +15,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from herramientas.consola import preparar
+
+preparar()
+
 from flask import Flask
 from sqlalchemy import func, inspect, select
 
@@ -24,8 +28,11 @@ from aplicacion.modelos import (
     Ajuste,
     Asignatura,
     Auditoria,
+    Curso,
     Docente,
     DocenteAsignatura,
+    DocenteCurso,
+    Grado,
     Horario,
     Jornada,
     Marcacion,
@@ -45,6 +52,9 @@ MODELOS = [
     ("docentes", Docente),
     ("asignaturas", Asignatura),
     ("asignaturas por docente", DocenteAsignatura),
+    ("grados", Grado),
+    ("cursos", Curso),
+    ("cursos por docente", DocenteCurso),
     ("jornadas", Jornada),
     ("horarios", Horario),
     ("marcaciones", Marcacion),
@@ -145,7 +155,7 @@ def main() -> int:
     if fallos:
         print(f"  ✗ {fallos} desajuste(s) entre los modelos y la base.\n")
         return 1
-    print("  ✓ Los 13 modelos casan con las tablas reales.\n")
+    print(f"  ✓ Los {len(MODELOS)} modelos casan con las tablas reales.\n")
     return 0
 
 

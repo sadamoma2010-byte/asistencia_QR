@@ -14,6 +14,7 @@ class CrearHorario(BaseModel):
     teacherId: str
     shiftId: str
     subjectId: str | None = None
+    courseId: str | None = None
     # 0 = domingo … 6 = sábado. Nulo aplica a todos los días.
     dayOfWeek: int | None = Field(default=None, ge=0, le=6)
     checkInTime: Hora
@@ -28,6 +29,7 @@ class ActualizarHorario(BaseModel):
     teacherId: str | None = None
     shiftId: str | None = None
     subjectId: str | None = None
+    courseId: str | None = None
     dayOfWeek: int | None = Field(default=None, ge=0, le=6)
     checkInTime: Hora | None = None
     checkOutTime: Hora | None = None

@@ -10,12 +10,13 @@ from ...comun.respuestas import responder
 from ...comun.rutas_crud import Exportacion, registrar_crud
 from ...comun.seguridad import exigir_usuario, requiere_permisos, requiere_sesion
 from ...comun.tiempo import formato_fecha_hora
-from .esquemas import ActualizarDocente, AsignarAsignaturas, CrearDocente
+from .esquemas import ActualizarDocente, AsignarAsignaturas, AsignarCursos, CrearDocente
 from .servicio import (
     ServicioDocentes,
     _asignaturas_de,
     _contar_horarios,
     _contar_marcaciones,
+    _cursos_de,
 )
 
 bp = Blueprint("docentes", __name__)
@@ -36,6 +37,18 @@ def asignar_asignaturas(identificador: str):
     return responder(
         ServicioDocentes.asignar_asignaturas(
             identificador, datos.subjectIds, exigir_usuario(), contexto()
+        )
+    )
+
+
+@bp.patch("/teachers/<identificador>/courses")
+@requiere_permisos("teachers.update")
+def asignar_cursos(identificador: str):
+    """Reemplaza el listado de cursos que atiende el docente."""
+    datos = AsignarCursos.model_validate(request.get_json(silent=True) or {})
+    return responder(
+        ServicioDocentes.asignar_cursos(
+            identificador, datos.courseIds, exigir_usuario(), contexto()
         )
     )
 
@@ -115,6 +128,11 @@ registrar_crud(
                 "Asignaturas",
                 34,
                 valor=lambda f: ", ".join(a["name"] for a in _asignaturas_de(f.id)) or "—",
+            ),
+            Columna(
+                "Cursos",
+                24,
+                valor=lambda f: ", ".join(c["name"] for c in _cursos_de(f.id)) or "—",
             ),
             Columna("Horarios", 12, valor=lambda f: _contar_horarios(f.id)),
             Columna("Marcaciones", 14, valor=lambda f: _contar_marcaciones(f.id)),

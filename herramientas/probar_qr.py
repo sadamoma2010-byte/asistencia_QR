@@ -16,6 +16,10 @@ from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from herramientas.consola import preparar
+
+preparar()
+
 from sqlalchemy import select
 
 from aplicacion import crear_app

@@ -40,6 +40,17 @@ CREATE TYPE "audit_action" AS ENUM ('CREATE', 'UPDATE', 'DELETE', 'ACTIVATE', 'D
 -- CreateEnum
 CREATE TYPE "setting_type" AS ENUM ('STRING', 'NUMBER', 'BOOLEAN', 'JSON');
 
+-- CreateEnum
+-- Niveles del servicio educativo formal segun la Ley 115 de 1994:
+--   Preescolar        art. 15-18   (Decreto 2247 de 1997: prejardin, jardin,
+--                                   transicion; solo transicion es obligatorio)
+--   Basica primaria   art. 19-21   grados 1 a 5
+--   Basica secundaria art. 19-22   grados 6 a 9
+--   Media             art. 27-35   grados 10 y 11, academica o tecnica
+CREATE TYPE "education_level" AS ENUM (
+  'PREESCOLAR', 'BASICA_PRIMARIA', 'BASICA_SECUNDARIA', 'MEDIA'
+);
+
 -- CreateTable
 CREATE TABLE "users" (
     "id" UUID NOT NULL,
@@ -171,6 +182,63 @@ CREATE TABLE "teacher_subjects" (
 );
 
 -- CreateTable
+-- Grados del sistema educativo. Los define la Ley 115 de 1994, asi que vienen
+-- cargados y no se crean a mano: la institucion solo elige cuales ofrece.
+CREATE TABLE "grades" (
+    "id" UUID NOT NULL,
+    -- Identificador estable del grado: TR, 1, 2 ... 11
+    "code" VARCHAR(10) NOT NULL,
+    "name" VARCHAR(60) NOT NULL,
+    "level" "education_level" NOT NULL,
+    -- Orden en la escalera educativa, de prejardin (1) a once (14)
+    "position" SMALLINT NOT NULL,
+    "description" VARCHAR(300),
+    "is_system" BOOLEAN NOT NULL DEFAULT false,
+    "status" "record_status" NOT NULL DEFAULT 'ACTIVE',
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(3) NOT NULL,
+    "deleted_at" TIMESTAMPTZ(3),
+
+    CONSTRAINT "grades_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+-- Cursos o grupos de un grado: 6A, 6B, 6C. Cada institucion abre los que
+-- necesite segun su matricula.
+CREATE TABLE "courses" (
+    "id" UUID NOT NULL,
+    "grade_id" UUID NOT NULL,
+    -- Letra o denominacion del grupo dentro del grado
+    "letter" VARCHAR(10) NOT NULL,
+    -- Nombre completo ya compuesto, por ejemplo "6A". Se guarda resuelto para
+    -- poder buscarlo y ordenarlo sin recomponerlo en cada consulta.
+    "name" VARCHAR(80) NOT NULL,
+    -- Jornada en la que funciona el curso. Opcional: hay grupos que no se
+    -- adscriben a una sola.
+    "shift_id" UUID,
+    -- Docente director de grupo
+    "homeroom_teacher_id" UUID,
+    "capacity" SMALLINT,
+    "status" "record_status" NOT NULL DEFAULT 'ACTIVE',
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(3) NOT NULL,
+    "deleted_at" TIMESTAMPTZ(3),
+
+    CONSTRAINT "courses_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+-- Cursos que atiende cada docente. Un docente puede estar en varios y un
+-- curso lo atienden varios docentes.
+CREATE TABLE "teacher_courses" (
+    "teacher_id" UUID NOT NULL,
+    "course_id" UUID NOT NULL,
+    "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "teacher_courses_pkey" PRIMARY KEY ("teacher_id","course_id")
+);
+
+-- CreateTable
 CREATE TABLE "shifts" (
     "id" UUID NOT NULL,
     "name" VARCHAR(80) NOT NULL,
@@ -189,6 +257,8 @@ CREATE TABLE "schedules" (
     "teacher_id" UUID NOT NULL,
     "shift_id" UUID NOT NULL,
     "subject_id" UUID,
+    -- Curso al que se dicta esa franja
+    "course_id" UUID,
     "day_of_week" SMALLINT,
     "check_in_time" VARCHAR(5) NOT NULL,
     "check_out_time" VARCHAR(5) NOT NULL,
@@ -338,6 +408,27 @@ CREATE INDEX "subjects_code_idx" ON "subjects"("code");
 CREATE INDEX "teacher_subjects_subject_id_idx" ON "teacher_subjects"("subject_id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "grades_code_key" ON "grades"("code");
+
+CREATE INDEX "grades_level_position_idx" ON "grades"("level", "position");
+
+CREATE INDEX "grades_status_deleted_at_idx" ON "grades"("status", "deleted_at");
+
+-- Un grado no puede tener dos grupos con la misma letra a la vez. El indice
+-- ignora los eliminados, para que la letra pueda reutilizarse despues.
+CREATE UNIQUE INDEX "courses_grade_letter_key"
+  ON "courses"("grade_id", "letter") WHERE "deleted_at" IS NULL;
+
+CREATE INDEX "courses_grade_id_idx" ON "courses"("grade_id");
+
+CREATE INDEX "courses_shift_id_idx" ON "courses"("shift_id");
+
+CREATE INDEX "courses_homeroom_teacher_id_idx" ON "courses"("homeroom_teacher_id");
+
+CREATE INDEX "courses_status_deleted_at_idx" ON "courses"("status", "deleted_at");
+
+CREATE INDEX "teacher_courses_course_id_idx" ON "teacher_courses"("course_id");
+
 CREATE UNIQUE INDEX "shifts_name_key" ON "shifts"("name");
 
 -- CreateIndex
@@ -354,6 +445,8 @@ CREATE INDEX "schedules_shift_id_idx" ON "schedules"("shift_id");
 
 -- CreateIndex
 CREATE INDEX "schedules_subject_id_idx" ON "schedules"("subject_id");
+
+CREATE INDEX "schedules_course_id_idx" ON "schedules"("course_id");
 
 -- CreateIndex
 CREATE INDEX "attendances_teacher_id_date_idx" ON "attendances"("teacher_id", "date");
@@ -418,6 +511,20 @@ ALTER TABLE "schedules" ADD CONSTRAINT "schedules_shift_id_fkey" FOREIGN KEY ("s
 -- AddForeignKey
 ALTER TABLE "schedules" ADD CONSTRAINT "schedules_subject_id_fkey" FOREIGN KEY ("subject_id") REFERENCES "subjects"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- Un grado con cursos abiertos no se elimina: se quedaria el curso sin grado
+ALTER TABLE "courses" ADD CONSTRAINT "courses_grade_id_fkey" FOREIGN KEY ("grade_id") REFERENCES "grades"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "courses" ADD CONSTRAINT "courses_shift_id_fkey" FOREIGN KEY ("shift_id") REFERENCES "shifts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Si el director de grupo deja la institucion, el curso sigue existiendo
+ALTER TABLE "courses" ADD CONSTRAINT "courses_homeroom_teacher_id_fkey" FOREIGN KEY ("homeroom_teacher_id") REFERENCES "teachers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "teacher_courses" ADD CONSTRAINT "teacher_courses_teacher_id_fkey" FOREIGN KEY ("teacher_id") REFERENCES "teachers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "teacher_courses" ADD CONSTRAINT "teacher_courses_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "courses"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "schedules" ADD CONSTRAINT "schedules_course_id_fkey" FOREIGN KEY ("course_id") REFERENCES "courses"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
 -- AddForeignKey
 ALTER TABLE "attendances" ADD CONSTRAINT "attendances_teacher_id_fkey" FOREIGN KEY ("teacher_id") REFERENCES "teachers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -438,6 +545,8 @@ ALTER TABLE "roles" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
 ALTER TABLE "permissions" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
 ALTER TABLE "teachers" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
 ALTER TABLE "subjects" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
+ALTER TABLE "grades" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
+ALTER TABLE "courses" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
 ALTER TABLE "shifts" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
 ALTER TABLE "schedules" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
 ALTER TABLE "attendances" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
@@ -470,6 +579,14 @@ ALTER TABLE "schedules" ADD CONSTRAINT "schedules_tolerancia_valida"
 -- Intensidad horaria semanal positiva
 ALTER TABLE "subjects" ADD CONSTRAINT "subjects_horas_validas"
   CHECK ("weekly_hours" IS NULL OR "weekly_hours" BETWEEN 1 AND 60);
+
+-- El grado ocupa un lugar en la escalera educativa: 1 = prejardin, 14 = once
+ALTER TABLE "grades" ADD CONSTRAINT "grades_posicion_valida"
+  CHECK ("position" BETWEEN 1 AND 30);
+
+-- Cupo del curso positivo y dentro de lo razonable
+ALTER TABLE "courses" ADD CONSTRAINT "courses_cupo_valido"
+  CHECK ("capacity" IS NULL OR "capacity" BETWEEN 1 AND 100);
 
 -- Color hexadecimal de la asignatura
 ALTER TABLE "subjects" ADD CONSTRAINT "subjects_color_formato"
@@ -615,6 +732,9 @@ COMMENT ON TABLE "role_permissions" IS 'Tabla puente que asigna permisos a cada 
 COMMENT ON TABLE "teachers" IS 'Personal docente sujeto al control de asistencia.';
 COMMENT ON TABLE "subjects" IS 'Asignaturas que se imparten en la institución.';
 COMMENT ON TABLE "teacher_subjects" IS 'Asignaturas que dicta cada docente (muchos a muchos).';
+COMMENT ON TABLE "grades" IS 'Grados del servicio educativo formal segun la Ley 115 de 1994.';
+COMMENT ON TABLE "courses" IS 'Cursos o grupos de cada grado: 6A, 6B, 6C.';
+COMMENT ON TABLE "teacher_courses" IS 'Cursos que atiende cada docente.';
 COMMENT ON TABLE "shifts" IS 'Jornadas institucionales sobre las que se arman los horarios.';
 COMMENT ON TABLE "schedules" IS 'Franja horaria de un docente. Contra ella se mide la puntualidad.';
 COMMENT ON TABLE "attendances" IS 'Marcaciones de entrada y salida. Es la evidencia del sistema.';
@@ -663,6 +783,18 @@ INSERT INTO "permissions" ("id", "code", "name", "module", "is_system", "status"
   (gen_random_uuid(), 'subjects.activate', 'Activar asignaturas', 'Asignaturas', TRUE, 'ACTIVE', NOW(), NOW()),
   (gen_random_uuid(), 'subjects.deactivate', 'Inactivar asignaturas', 'Asignaturas', TRUE, 'ACTIVE', NOW(), NOW()),
   (gen_random_uuid(), 'subjects.export', 'Exportar asignaturas', 'Asignaturas', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'grades.read', 'Consultar grados', 'Grados', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'grades.update', 'Editar grados', 'Grados', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'grades.activate', 'Activar grados', 'Grados', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'grades.deactivate', 'Inactivar grados', 'Grados', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'grades.export', 'Exportar grados', 'Grados', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'courses.read', 'Consultar cursos', 'Cursos', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'courses.create', 'Crear cursos', 'Cursos', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'courses.update', 'Editar cursos', 'Cursos', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'courses.delete', 'Eliminar cursos', 'Cursos', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'courses.activate', 'Activar cursos', 'Cursos', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'courses.deactivate', 'Inactivar cursos', 'Cursos', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'courses.export', 'Exportar cursos', 'Cursos', TRUE, 'ACTIVE', NOW(), NOW()),
   (gen_random_uuid(), 'shifts.read', 'Consultar jornadas', 'Jornadas', TRUE, 'ACTIVE', NOW(), NOW()),
   (gen_random_uuid(), 'shifts.create', 'Crear jornadas', 'Jornadas', TRUE, 'ACTIVE', NOW(), NOW()),
   (gen_random_uuid(), 'shifts.update', 'Editar jornadas', 'Jornadas', TRUE, 'ACTIVE', NOW(), NOW()),
@@ -698,26 +830,26 @@ INSERT INTO "roles" ("id", "code", "name", "description", "is_system", "status",
   (gen_random_uuid(), 'DOCENTE', 'Docente', 'Registra su propia entrada y salida y consulta su historial.', TRUE, 'ACTIVE', NOW(), NOW());
 
 -- ── Asignación de permisos a cada rol ──
--- SUPER_ADMIN: 62 permisos
+-- SUPER_ADMIN: 74 permisos
 INSERT INTO "role_permissions" ("role_id", "permission_id", "created_at")
 SELECT r."id", p."id", NOW()
 FROM "roles" r CROSS JOIN "permissions" p
 WHERE r."code" = 'SUPER_ADMIN'
-  AND p."code" IN ('users.read', 'users.create', 'users.update', 'users.delete', 'users.activate', 'users.deactivate', 'users.export', 'users.reset-password', 'roles.read', 'roles.create', 'roles.update', 'roles.delete', 'roles.activate', 'roles.deactivate', 'roles.export', 'permissions.read', 'permissions.create', 'permissions.update', 'permissions.delete', 'permissions.activate', 'permissions.deactivate', 'permissions.export', 'teachers.read', 'teachers.create', 'teachers.update', 'teachers.delete', 'teachers.activate', 'teachers.deactivate', 'teachers.export', 'subjects.read', 'subjects.create', 'subjects.update', 'subjects.delete', 'subjects.activate', 'subjects.deactivate', 'subjects.export', 'shifts.read', 'shifts.create', 'shifts.update', 'shifts.delete', 'shifts.activate', 'shifts.deactivate', 'shifts.export', 'schedules.read', 'schedules.create', 'schedules.update', 'schedules.delete', 'schedules.activate', 'schedules.deactivate', 'schedules.export', 'attendance.read', 'attendance.create', 'attendance.export', 'attendance.self', 'attendance.delete', 'reports.read', 'reports.export', 'audit.read', 'audit.export', 'settings.read', 'settings.update', 'dashboard.read');
+  AND p."code" IN ('users.read', 'users.create', 'users.update', 'users.delete', 'users.activate', 'users.deactivate', 'users.export', 'users.reset-password', 'roles.read', 'roles.create', 'roles.update', 'roles.delete', 'roles.activate', 'roles.deactivate', 'roles.export', 'permissions.read', 'permissions.create', 'permissions.update', 'permissions.delete', 'permissions.activate', 'permissions.deactivate', 'permissions.export', 'teachers.read', 'teachers.create', 'teachers.update', 'teachers.delete', 'teachers.activate', 'teachers.deactivate', 'teachers.export', 'grades.read', 'grades.update', 'grades.activate', 'grades.deactivate', 'grades.export', 'courses.read', 'courses.create', 'courses.update', 'courses.delete', 'courses.activate', 'courses.deactivate', 'courses.export', 'subjects.read', 'subjects.create', 'subjects.update', 'subjects.delete', 'subjects.activate', 'subjects.deactivate', 'subjects.export', 'shifts.read', 'shifts.create', 'shifts.update', 'shifts.delete', 'shifts.activate', 'shifts.deactivate', 'shifts.export', 'schedules.read', 'schedules.create', 'schedules.update', 'schedules.delete', 'schedules.activate', 'schedules.deactivate', 'schedules.export', 'attendance.read', 'attendance.create', 'attendance.export', 'attendance.self', 'attendance.delete', 'reports.read', 'reports.export', 'audit.read', 'audit.export', 'settings.read', 'settings.update', 'dashboard.read');
 
 -- ADMINISTRADOR: 53 permisos
 INSERT INTO "role_permissions" ("role_id", "permission_id", "created_at")
 SELECT r."id", p."id", NOW()
 FROM "roles" r CROSS JOIN "permissions" p
 WHERE r."code" = 'ADMINISTRADOR'
-  AND p."code" IN ('users.read', 'users.create', 'users.update', 'users.delete', 'users.activate', 'users.deactivate', 'users.export', 'users.reset-password', 'roles.read', 'roles.create', 'roles.update', 'roles.activate', 'roles.deactivate', 'roles.export', 'permissions.read', 'teachers.read', 'teachers.create', 'teachers.update', 'teachers.delete', 'teachers.activate', 'teachers.deactivate', 'teachers.export', 'subjects.read', 'subjects.create', 'subjects.update', 'subjects.delete', 'subjects.activate', 'subjects.deactivate', 'subjects.export', 'shifts.read', 'shifts.create', 'shifts.update', 'shifts.delete', 'shifts.activate', 'shifts.deactivate', 'shifts.export', 'schedules.read', 'schedules.create', 'schedules.update', 'schedules.delete', 'schedules.activate', 'schedules.deactivate', 'schedules.export', 'attendance.read', 'attendance.create', 'attendance.export', 'reports.read', 'reports.export', 'audit.read', 'audit.export', 'settings.read', 'settings.update', 'dashboard.read');
+  AND p."code" IN ('users.read', 'users.create', 'users.update', 'users.delete', 'users.activate', 'users.deactivate', 'users.export', 'users.reset-password', 'roles.read', 'roles.create', 'roles.update', 'roles.activate', 'roles.deactivate', 'roles.export', 'permissions.read', 'teachers.read', 'teachers.create', 'teachers.update', 'teachers.delete', 'teachers.activate', 'teachers.deactivate', 'teachers.export', 'grades.read', 'grades.update', 'grades.activate', 'grades.deactivate', 'grades.export', 'courses.read', 'courses.create', 'courses.update', 'courses.delete', 'courses.activate', 'courses.deactivate', 'courses.export', 'subjects.read', 'subjects.create', 'subjects.update', 'subjects.delete', 'subjects.activate', 'subjects.deactivate', 'subjects.export', 'shifts.read', 'shifts.create', 'shifts.update', 'shifts.delete', 'shifts.activate', 'shifts.deactivate', 'shifts.export', 'schedules.read', 'schedules.create', 'schedules.update', 'schedules.delete', 'schedules.activate', 'schedules.deactivate', 'schedules.export', 'attendance.read', 'attendance.create', 'attendance.export', 'reports.read', 'reports.export', 'audit.read', 'audit.export', 'settings.read', 'settings.update', 'dashboard.read');
 
 -- COORDINADOR: 19 permisos
 INSERT INTO "role_permissions" ("role_id", "permission_id", "created_at")
 SELECT r."id", p."id", NOW()
 FROM "roles" r CROSS JOIN "permissions" p
 WHERE r."code" = 'COORDINADOR'
-  AND p."code" IN ('dashboard.read', 'teachers.read', 'teachers.update', 'teachers.export', 'subjects.read', 'subjects.create', 'subjects.update', 'subjects.export', 'shifts.read', 'schedules.read', 'schedules.create', 'schedules.update', 'schedules.export', 'attendance.read', 'attendance.create', 'attendance.export', 'reports.read', 'reports.export', 'audit.read');
+  AND p."code" IN ('dashboard.read', 'teachers.read', 'teachers.update', 'teachers.export', 'grades.read', 'courses.read', 'courses.create', 'courses.update', 'courses.export', 'subjects.read', 'subjects.create', 'subjects.update', 'subjects.export', 'shifts.read', 'schedules.read', 'schedules.create', 'schedules.update', 'schedules.export', 'attendance.read', 'attendance.create', 'attendance.export', 'reports.read', 'reports.export', 'audit.read');
 
 -- DOCENTE: 1 permisos
 INSERT INTO "role_permissions" ("role_id", "permission_id", "created_at")
@@ -746,6 +878,40 @@ INSERT INTO "shifts" ("id", "name", "description", "status", "created_at", "upda
   (gen_random_uuid(), 'Mañana', 'Jornada de la mañana', 'ACTIVE', NOW(), NOW()),
   (gen_random_uuid(), 'Tarde', 'Jornada de la tarde', 'ACTIVE', NOW(), NOW()),
   (gen_random_uuid(), 'Noche', 'Jornada nocturna', 'ACTIVE', NOW(), NOW());
+
+-- ── Grados (Ley 115 de 1994) ──
+-- La escalera educativa la fija la ley, no la institucion: por eso vienen
+-- cargados y marcados como del sistema. Cada institucion decide cuales ofrece
+-- activandolos o inactivandolos, y abre sus cursos en la tabla "courses".
+--
+--   Preescolar         art. 15-18. Decreto 2247 de 1997 define los tres
+--                      grados; solo transicion es obligatorio.
+--   Basica primaria    art. 21. Cinco grados.
+--   Basica secundaria  art. 22. Cuatro grados.
+--   Media              art. 27-35. Dos grados, academica o tecnica.
+INSERT INTO "grades" ("id", "code", "name", "level", "position", "description", "is_system", "status", "created_at", "updated_at") VALUES
+  (gen_random_uuid(), 'PJ', 'Prejardín',  'PREESCOLAR'::"education_level",         1, 'Preescolar. No obligatorio.', TRUE, 'INACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'JA', 'Jardín',     'PREESCOLAR'::"education_level",         2, 'Preescolar. No obligatorio.', TRUE, 'INACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), 'TR', 'Transición', 'PREESCOLAR'::"education_level",         3, 'Preescolar. Grado obligatorio (art. 17).', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), '1',  'Primero',    'BASICA_PRIMARIA'::"education_level",    4, 'Básica primaria.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), '2',  'Segundo',    'BASICA_PRIMARIA'::"education_level",    5, 'Básica primaria.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), '3',  'Tercero',    'BASICA_PRIMARIA'::"education_level",    6, 'Básica primaria.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), '4',  'Cuarto',     'BASICA_PRIMARIA'::"education_level",    7, 'Básica primaria.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), '5',  'Quinto',     'BASICA_PRIMARIA'::"education_level",    8, 'Básica primaria.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), '6',  'Sexto',      'BASICA_SECUNDARIA'::"education_level",  9, 'Básica secundaria.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), '7',  'Séptimo',    'BASICA_SECUNDARIA'::"education_level", 10, 'Básica secundaria.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), '8',  'Octavo',     'BASICA_SECUNDARIA'::"education_level", 11, 'Básica secundaria.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), '9',  'Noveno',     'BASICA_SECUNDARIA'::"education_level", 12, 'Básica secundaria.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), '10', 'Décimo',     'MEDIA'::"education_level",             13, 'Educación media.', TRUE, 'ACTIVE', NOW(), NOW()),
+  (gen_random_uuid(), '11', 'Undécimo',   'MEDIA'::"education_level",             14, 'Educación media. Otorga el título de bachiller.', TRUE, 'ACTIVE', NOW(), NOW());
+
+-- ── Cursos de ejemplo ──
+-- Un grupo A por cada grado activo, para que la institución tenga de dónde
+-- partir. Los demás se abren desde la pantalla de Cursos.
+INSERT INTO "courses" ("id", "grade_id", "letter", "name", "status", "created_at", "updated_at")
+SELECT gen_random_uuid(), g."id", 'A', g."code" || 'A', 'ACTIVE', NOW(), NOW()
+FROM "grades" g
+WHERE g."status" = 'ACTIVE';
 
 -- ── Asignaturas de ejemplo ──
 INSERT INTO "subjects" ("id", "code", "name", "weekly_hours", "color", "status", "created_at", "updated_at") VALUES

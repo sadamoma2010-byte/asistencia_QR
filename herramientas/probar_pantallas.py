@@ -15,6 +15,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from herramientas.consola import preparar
+
+preparar()
+
 from aplicacion import crear_app
 from aplicacion.extensiones import limitador
 
@@ -25,6 +29,8 @@ PANTALLAS = [
     ("Dashboard", "/dashboard", "Resumen operativo"),
     ("Docentes", "/docentes", "Administre la información de los docentes"),
     ("Asignaturas", "/asignaturas", "Cree las materias"),
+    ("Grados", "/grados", "Ley 115 de 1994"),
+    ("Cursos", "/cursos", "Grupos de cada grado"),
     ("Jornadas", "/jornadas", "Franjas institucionales"),
     ("Horarios", "/horarios", "Franja de trabajo"),
     ("Asistencia", "/asistencia", "Consulte, filtre y exporte"),
@@ -142,7 +148,7 @@ def main() -> int:
     if fallos:
         print(f"  ✗ {fallos} comprobación(es) fallaron.\n")
         return 1
-    print("  ✓ Las 15 pantallas y sus recursos responden correctamente.\n")
+    print(f"  ✓ Las {len(PANTALLAS)} pantallas y sus recursos responden correctamente.\n")
     return 0
 
 

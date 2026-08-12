@@ -1,6 +1,6 @@
 # Estructura de la base de datos
 
-Motor: **PostgreSQL 14 o superior** · 13 tablas · 5 tipos enumerados · 2 vistas · 2 funciones
+Motor: **PostgreSQL 14 o superior** · 16 tablas · 6 tipos enumerados · 2 vistas · 2 funciones
 
 El archivo [`database.sql`](database.sql) reconstruye todo desde cero. Se genera a partir de
 los modelos de `aplicacion/modelos/`, que reflejan la estructura definida
@@ -23,9 +23,17 @@ erDiagram
     TEACHERS ||--o{ TEACHER_SUBJECTS : "dicta"
     SUBJECTS ||--o{ TEACHER_SUBJECTS : "impartida por"
 
+    GRADES  ||--o{ COURSES : "se divide en"
+    SHIFTS  ||--o{ COURSES : "acoge"
+    COURSES ||--o| TEACHERS : "dirigido por"
+
+    TEACHERS ||--o{ TEACHER_COURSES : "atiende"
+    COURSES  ||--o{ TEACHER_COURSES : "atendido por"
+
     TEACHERS ||--o{ SCHEDULES : "trabaja en"
     SHIFTS   ||--o{ SCHEDULES : "agrupa"
     SUBJECTS ||--o{ SCHEDULES : "se dicta en"
+    COURSES  ||--o{ SCHEDULES : "se atiende en"
 
     TEACHERS  ||--o{ ATTENDANCES : "marca"
     SCHEDULES ||--o{ ATTENDANCES : "evalúa"
@@ -104,6 +112,32 @@ erDiagram
         uuid subject_id PK_FK
     }
 
+    GRADES {
+        uuid id PK
+        varchar code UK "1, 6, 11, TR…"
+        varchar name
+        enum level "nivel de la Ley 115"
+        smallint position "orden de la escalera"
+        boolean is_system
+        enum status "si la institución lo ofrece"
+    }
+
+    COURSES {
+        uuid id PK
+        uuid grade_id FK
+        varchar letter "A, B, C…"
+        varchar name "compuesto: 6A"
+        uuid shift_id FK
+        uuid homeroom_teacher_id FK "director de grupo"
+        smallint capacity
+        enum status
+    }
+
+    TEACHER_COURSES {
+        uuid teacher_id PK_FK
+        uuid course_id PK_FK
+    }
+
     SHIFTS {
         uuid id PK
         varchar name UK
@@ -116,6 +150,7 @@ erDiagram
         uuid teacher_id FK
         uuid shift_id FK
         uuid subject_id FK
+        uuid course_id FK
         smallint day_of_week "0-6, null = todos"
         varchar check_in_time "HH:mm"
         varchar check_out_time "HH:mm"
@@ -246,6 +281,49 @@ materias y una materia la dictan varios docentes.
 
 ---
 
+### Estructura académica
+
+Sigue la **Ley 115 de 1994**, la ley general de educación en Colombia.
+
+#### `grades`
+Los grados de la escalera educativa. Vienen cargados: la institución decide cuáles
+ofrece, no cuáles existen.
+
+| Campo | Tipo | Función |
+|---|---|---|
+| `code` | VARCHAR(10) único | `PJ`, `JA`, `TR`, `1`…`11` |
+| `name` | VARCHAR(60) | Nombre visible, editable |
+| `level` | ENUM | PREESCOLAR, BASICA_PRIMARIA, BASICA_SECUNDARIA, MEDIA |
+| `position` | SMALLINT | Lugar en la escalera, del 1 al 14 |
+| `is_system` | BOOLEAN | Los de la ley no se eliminan; solo se inactivan |
+| `status` | ENUM | Si la institución ofrece ese grado |
+
+Los catorce que fija la ley: prejardín, jardín y transición en preescolar
+(Decreto 2247 de 1997), 1.º a 5.º en básica primaria (art. 21), 6.º a 9.º en
+básica secundaria (art. 22) y 10.º y 11.º en media (art. 27–35). De preescolar
+solo transición es obligatorio, así que los otros dos llegan inactivos.
+
+#### `courses`
+Los grupos dentro de cada grado: 6A, 6B, 6C.
+
+| Campo | Tipo | Función |
+|---|---|---|
+| `grade_id` | UUID FK | Grado al que pertenece |
+| `letter` | VARCHAR(10) | Letra del grupo, única dentro del grado |
+| `name` | VARCHAR(80) | Se compone solo: código del grado + letra |
+| `shift_id` | UUID FK | Jornada en la que funciona |
+| `homeroom_teacher_id` | UUID FK | Director de grupo |
+| `capacity` | SMALLINT | Cupo máximo de estudiantes |
+
+La letra es única por grado **mientras el curso esté vigente**: al darlo de baja
+se libera para poder reabrir ese grupo.
+
+#### `teacher_courses`
+Qué cursos atiende cada docente. Muchos a muchos: un docente puede pertenecer a
+uno o varios cursos y un curso lo atienden varios docentes.
+
+---
+
 ### Control horario
 
 #### `shifts`
@@ -259,6 +337,7 @@ Franja de trabajo de un docente. **Es la referencia contra la que se mide la pun
 | `teacher_id` | UUID FK | Docente |
 | `shift_id` | UUID FK | Jornada |
 | `subject_id` | UUID FK | Asignatura; debe estar entre las que dicta el docente |
+| `course_id` | UUID FK | Curso; debe estar entre los que atiende el docente |
 | `day_of_week` | SMALLINT | 0 = domingo … 6 = sábado. `null` aplica a todos los días |
 | `check_in_time` | VARCHAR(5) | Hora de entrada esperada, HH:mm |
 | `check_out_time` | VARCHAR(5) | Hora de salida esperada, HH:mm |
@@ -309,9 +388,9 @@ defecto, ventana de marcación. Los marcados `is_public` se leen sin autenticaci
 
 ### Tipos enumerados
 
-`record_status`, `attendance_type`, `attendance_status`, `audit_action` y `setting_type`.
-La base rechaza cualquier valor fuera de la lista, cosa que con columnas de texto libre
-dependía solo de la aplicación.
+`record_status`, `attendance_type`, `attendance_status`, `audit_action`,
+`setting_type` y `education_level`. La base rechaza cualquier valor fuera de la
+lista, cosa que con columnas de texto libre dependía solo de la aplicación.
 
 ### Índices parciales
 
@@ -363,6 +442,8 @@ programa escribe en estas tablas, los datos siguen siendo coherentes.
 | `schedules_check_in_time_formato` | Horas que no sean HH:mm de 24 horas |
 | `schedules_dia_valido` | Días fuera del rango 0–6 |
 | `schedules_tolerancia_valida` | Tolerancias negativas o mayores a 120 minutos |
+| `grades_posicion_valida` | Grados fuera de la escalera educativa |
+| `courses_cupo_valido` | Cupos de curso negativos o mayores de 100 |
 | `subjects_color_formato` | Colores que no sean hexadecimales #RRGGBB |
 | `users_correo_formato` | Correos sin arroba o sin dominio |
 | `users_intentos_no_negativos` | Contadores de intentos en negativo |
@@ -376,6 +457,10 @@ programa escribe en estas tablas, los datos siguen siendo coherentes.
 | `teachers` → `attendances` | RESTRICT: **no se puede** borrar un docente con marcaciones |
 | `schedules` → `attendances` | SET NULL: la marcación se conserva sin su horario |
 | `subjects` → `schedules` | SET NULL: el horario queda sin asignatura |
+| `grades` → `courses` | RESTRICT: un grado con cursos no se puede borrar |
+| `courses` → `schedules` | SET NULL: el horario queda sin curso |
+| `courses` → `teacher_courses` | CASCADE: el vínculo desaparece con el curso |
+| `teachers` → `courses` | SET NULL: el curso queda sin director de grupo |
 | `users` → `audit_logs` | SET NULL: el evento permanece aunque el usuario se elimine |
 
 RESTRICT en asistencia es deliberado: las marcaciones son la evidencia y no deben

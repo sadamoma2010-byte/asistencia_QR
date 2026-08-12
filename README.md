@@ -35,14 +35,15 @@ ASISTENCIA_QR_2026_SENA/
 ├── aplicacion/
 │   ├── config.py         configuración por variables de entorno
 │   ├── extensiones.py    base de datos y límite de peticiones
-│   ├── modelos/          13 modelos SQLAlchemy
+│   ├── modelos/          16 modelos SQLAlchemy
 │   ├── comun/            respuestas, errores, seguridad, paginación,
 │   │                     tiempo, auditoría, Excel, subidas
-│   ├── modulos/          12 módulos: auth, usuarios, roles, permisos,
-│   │                     docentes, asignaturas, jornadas, horarios,
-│   │                     asistencia, reportes, auditoría, configuración
+│   ├── modulos/          14 módulos: auth, usuarios, roles, permisos,
+│   │                     docentes, asignaturas, grados, cursos, jornadas,
+│   │                     horarios, asistencia, reportes, auditoría,
+│   │                     configuración
 │   ├── web/              rutas de las páginas y navegación
-│   ├── plantillas/       15 pantallas en Jinja2
+│   ├── plantillas/       16 pantallas en Jinja2
 │   └── estaticos/        CSS compilado y JavaScript propio
 ├── herramientas/         comprobaciones ejecutables
 ├── scripts/              arranque, parada, base de datos y publicación
@@ -156,7 +157,7 @@ npm run estilos
 
 La estructura completa está documentada en [`BASE-DE-DATOS.md`](BASE-DE-DATOS.md), con el
 diagrama entidad-relación y la descripción de cada tabla. La fuente de verdad es
-[`database.sql`](database.sql): 13 tablas, 5 tipos enumerados, 50 índices, 2 vistas
+[`database.sql`](database.sql): 16 tablas, 6 tipos enumerados, 61 índices, 2 vistas
 y 2 funciones.
 
 Para reconstruirla desde cero (**borra todo**):
@@ -175,15 +176,16 @@ Todas se ejecutan contra la base real y retiran lo que crean.
 
 | Comando | Qué verifica |
 |---|---|
-| `.venv\Scripts\python herramientas\verificar_modelos.py` | Que los 13 modelos casen con las tablas |
+| `.venv\Scripts\python herramientas\verificar_modelos.py` | Que los 16 modelos casen con las tablas |
 | `.venv\Scripts\python herramientas\probar_auth.py` | Sesión, tokens, rotación y bloqueo por intentos |
-| `.venv\Scripts\python herramientas\probar_pantallas.py` | Que las 15 pantallas respondan con su contenido |
+| `.venv\Scripts\python herramientas\probar_pantallas.py` | Que las 16 pantallas respondan con su contenido |
 | `.venv\Scripts\python herramientas\probar_reglas.py` | Las reglas de negocio RN001 a RN009 |
 | `.venv\Scripts\python herramientas\probar_crud.py` | Alta, edición, relaciones y baja en cada módulo |
 | `.venv\Scripts\python herramientas\probar_qr.py` | Que el QR lleve a una dirección alcanzable y sirva a todos |
 | `.venv\Scripts\python herramientas\probar_borrado.py` | Borrado múltiple, sus barreras y su rastro en auditoría |
 | `.venv\Scripts\python herramientas\probar_fotos.py` | Que la fotografía se guarde en la base y se sirva bien |
 | `.venv\Scripts\python herramientas\probar_roles.py` | Que renombrar un rol no altere sus permisos |
+| `.venv\Scripts\python herramientas\probar_grados.py` | La escalera educativa, los cursos y su vínculo con los docentes |
 
 Y una utilidad que solo se ejecuta una vez, al actualizar desde una versión
 anterior a la 3.4:
@@ -200,6 +202,13 @@ estuvieran en `uploads/teachers/`.
 ```
 
 Da a cada rol un identificador propio y pone los nombres en castellano.
+
+```bash
+.venv\Scripts\python herramientas\migrar_grados.py
+```
+
+Crea las tablas de grados y cursos, carga los catorce grados de la Ley 115 y
+abre un curso «A» en cada uno de los que la institución ofrece.
 
 ---
 
@@ -238,6 +247,56 @@ corresponda en cada institución, sin que nadie pierda un solo permiso.
 Los roles del sistema **se pueden renombrar** pero no eliminar ni inactivar, y
 al de control total no se le pueden recortar los permisos: los tiene todos por
 definición.
+
+---
+
+## Organización académica
+
+La estructura sigue la **Ley 115 de 1994**, la ley general de educación en
+Colombia. Los catorce grados vienen cargados y no se inventan desde la
+aplicación: lo que cada institución decide es cuáles ofrece.
+
+| Nivel | Artículo | Grados |
+|---|---|---|
+| Preescolar | Art. 15–18 y Decreto 2247 de 1997 | Prejardín, Jardín, Transición |
+| Básica primaria | Art. 21 | 1.º a 5.º |
+| Básica secundaria | Art. 22 | 6.º a 9.º |
+| Educación media | Art. 27–35 | 10.º y 11.º |
+
+De los tres grados de preescolar, la ley solo obliga a **Transición**: por eso
+prejardín y jardín llegan inactivos y se activan si el centro los ofrece.
+
+**Dónde está cada cosa:**
+
+```
+Grado  ──┬── Curso 6A ──┬── jornada (mañana, tarde…)
+   6.º   │              ├── director de grupo (un docente)
+         │              ├── cupo
+         │              └── docentes que lo atienden  ← uno o varios
+         ├── Curso 6B
+         └── Curso 6C
+```
+
+- **Grado** es el peldaño de la escalera: sexto, séptimo, décimo.
+- **Curso** es el grupo dentro de ese grado: 6A, 6B, 6C. El nombre se compone
+  solo con el código del grado y la letra; no hay que escribirlo.
+- Un **docente pertenece a uno o varios cursos**, se asigna en su ficha
+  (`Docentes → Editar → Cursos que atiende`) o desde el propio curso.
+- Un curso puede tener un **director de grupo**, que ha de ser uno de sus
+  docentes; mientras lo sea, no puede retirarse de ese curso ni ser eliminado.
+- Un **horario** puede atarse a un curso, y solo a uno que ese docente atienda:
+  la misma idea que ya regía para las asignaturas.
+
+Lo que el sistema protege por sí solo:
+
+| Situación | Qué ocurre |
+|---|---|
+| Eliminar un grado de la ley | Se impide; si no se ofrece, se inactiva |
+| Cambiar el código, el nivel o el orden de un grado | No se admite: los fija la ley |
+| Cambiar el nombre visible de un grado | Permitido, como con los roles |
+| Inactivar un grado con cursos abiertos | Se impide hasta cerrar sus cursos |
+| Repetir la letra de un grupo en el mismo grado | Se rechaza |
+| Eliminar un curso con horarios | Se impide |
 
 ---
 
@@ -322,7 +381,8 @@ Base: `/api/v1` — Swagger en `/api/docs`
 
 ```
 /auth        /users       /roles      /permissions   /teachers   /subjects
-/shifts      /schedules   /attendance /reports       /audit      /settings
+/grades      /courses     /shifts     /schedules     /attendance /reports
+/audit       /settings
 ```
 
 Contrato REST estándar por módulo:

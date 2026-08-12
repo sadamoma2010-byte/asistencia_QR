@@ -101,6 +101,8 @@ def dashboard():
 LISTADOS = {
     "docentes": ("Docentes", "teachers.read"),
     "asignaturas": ("Asignaturas", "subjects.read"),
+    "grados": ("Grados", "grades.read"),
+    "cursos": ("Cursos", "courses.read"),
     "jornadas": ("Jornadas", "shifts.read"),
     "horarios": ("Horarios", "schedules.read"),
     "asistencia": ("Asistencia", "attendance.read"),
