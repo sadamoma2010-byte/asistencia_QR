@@ -11,7 +11,7 @@ import time
 from flask import request
 from sqlalchemy import delete, func, select
 
-from ...comun import auditoria
+from ...comun import auditoria, codigos
 from ...comun.consultas import Paginacion
 from ...comun.crud import ServicioCRUD
 from ...comun.errores import SolicitudInvalida
@@ -155,18 +155,7 @@ class ServicioAsignaturas(ServicioCRUD):
     @classmethod
     def sugerir_codigo(cls) -> dict:
         """Siguiente código disponible con el formato ASG-000."""
-        ultimo = bd.session.execute(
-            select(Asignatura.code)
-            .where(Asignatura.code.startswith("ASG-"))
-            .order_by(Asignatura.code.desc())
-            .limit(1)
-        ).scalar_one_or_none()
-
-        try:
-            siguiente = int(ultimo.replace("ASG-", "")) + 1 if ultimo else 1
-        except ValueError:
-            siguiente = 1
-        return {"code": f"ASG-{siguiente:03d}"}
+        return {"code": codigos.siguiente(Asignatura.code, "ASG-", 3)}
 
     # ── Mutaciones ───────────────────────────────────────────────────
 

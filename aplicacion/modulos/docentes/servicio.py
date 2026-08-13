@@ -14,7 +14,7 @@ from flask import request
 from sqlalchemy import delete, func, select
 from werkzeug.datastructures import FileStorage
 
-from ...comun import auditoria, subidas
+from ...comun import auditoria, codigos, subidas
 from ...comun.consultas import Paginacion
 from ...comun.crud import ServicioCRUD
 from ...comun.errores import SolicitudInvalida
@@ -256,18 +256,7 @@ class ServicioDocentes(ServicioCRUD):
     @classmethod
     def sugerir_codigo(cls) -> dict:
         """Siguiente código disponible con el formato DOC-0000."""
-        ultimo = bd.session.execute(
-            select(Docente.code)
-            .where(Docente.code.startswith("DOC-"))
-            .order_by(Docente.code.desc())
-            .limit(1)
-        ).scalar_one_or_none()
-
-        try:
-            siguiente = int(ultimo.replace("DOC-", "").split(".")[0]) + 1 if ultimo else 1
-        except ValueError:
-            siguiente = 1
-        return {"code": f"DOC-{siguiente:04d}"}
+        return {"code": codigos.siguiente(Docente.code, "DOC-", 4)}
 
     # ── Mutaciones ───────────────────────────────────────────────────
 

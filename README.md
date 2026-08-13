@@ -250,6 +250,22 @@ definición.
 
 ---
 
+## Códigos que el sistema asigna solo
+
+Docentes y asignaturas llevan un código correlativo —`DOC-0001`, `ASG-001`—
+que el formulario rellena por su cuenta y deja bloqueado. Si otra persona toma
+ese número mientras se rellena la ficha, se reintenta con el siguiente.
+
+**Los números no se reutilizan.** Al eliminar un registro su código queda
+libre, pero el contador sigue avanzando: si se borra `DOC-0007`, el siguiente
+docente será `DOC-0008`. Así ningún código señala a dos personas distintas en
+el histórico de la auditoría, que es lo que da valor a la evidencia.
+
+El cálculo vive en `aplicacion/comun/codigos.py`, en un solo sitio para los
+dos módulos.
+
+---
+
 ## Organización académica
 
 La estructura sigue la **Ley 115 de 1994**, la ley general de educación en

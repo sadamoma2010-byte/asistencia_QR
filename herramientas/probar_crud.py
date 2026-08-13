@@ -20,7 +20,8 @@ from herramientas.consola import preparar
 preparar()
 
 from aplicacion import crear_app
-from aplicacion.extensiones import limitador
+from aplicacion.extensiones import bd, limitador
+from aplicacion.modelos import Asignatura, Docente
 
 CORREO = "admin@datly.local"
 CLAVE = "Admin123*"
@@ -42,6 +43,29 @@ def api(metodo: str, ruta: str, cuerpo: dict | None = None):
     respuesta = getattr(cliente, metodo)(f"/api/v1{ruta}", json=cuerpo)
     datos = respuesta.get_json() or {}
     return respuesta.status_code, datos.get("data"), datos.get("message", "")
+
+
+def _apartar_del_correlativo(modelo, identificadores: list[str]) -> dict | None:
+    """
+    Saca del prefijo institucional los registros que creó la prueba.
+
+    Al eliminarlos, su código quedó como `DOC-0010.DEL.<marca>`: sigue
+    empezando por `DOC-` y por tanto sigue contando para el siguiente número.
+    Se les cambia el prefijo por `PRB-`, con lo que la numeración vuelve a
+    estar donde estaba antes de ejecutar la prueba.
+    """
+    if not identificadores:
+        return None
+
+    with cliente.application.app_context():
+        for identificador in identificadores:
+            fila = bd.session.get(modelo, identificador)
+            if fila is not None:
+                fila.code = f"PRB-{fila.code.split('-', 1)[-1]}"[:40]
+        bd.session.commit()
+
+    _, sugerido, _ = api("get", f"/{'subjects' if modelo is Asignatura else 'teachers'}/next-code")
+    return sugerido
 
 
 def ciclo(
@@ -286,6 +310,66 @@ def main() -> int:
             estado, _, mensaje = api("delete", f"/schedules/{creado['id']}")
             comprobar("Baja", estado == 200, mensaje[:44])
 
+    # ── Códigos automáticos ──────────────────────────────────────────
+    # El formulario los rellena solo. Al eliminar un registro su código se
+    # renombra para dejar libre el original, y ese sufijo llegó a romper el
+    # cálculo: devolvía siempre el primero y la creación chocaba.
+    print("\n  Códigos que el sistema asigna solo")
+    print("  " + "─" * 62)
+
+    for titulo, recurso, modelo, alta in (
+        ("Asignaturas", "subjects", Asignatura,
+         lambda c, i: {"code": c, "name": f"{MARCA} auto {i}"}),
+        (
+            "Docentes",
+            "teachers",
+            Docente,
+            lambda c, i: {
+                "code": c,
+                "firstName": "Prueba",
+                "lastName": "Correlativo",
+                "document": f"{MARCA}95{i}",
+                "email": f"{MARCA.lower()}.auto{i}@datly.local",
+            },
+        ),
+    ):
+        numeros, temporales = [], []
+        for i in range(3):
+            _, sugerido, _ = api("get", f"/{recurso}/next-code")
+            codigo = (sugerido or {}).get("code", "")
+            numeros.append(codigo)
+            _, creado, mensaje = api("post", f"/{recurso}", alta(codigo, i))
+            if creado:
+                temporales.append(creado["id"])
+
+        comprobar(
+            f"{titulo}: tres altas seguidas",
+            len(set(numeros)) == 3 and len(temporales) == 3,
+            " → ".join(numeros)[:44],
+        )
+
+        for identificador in temporales:
+            api("delete", f"/{recurso}/{identificador}")
+
+        _, despues, _ = api("get", f"/{recurso}/next-code")
+        comprobar(
+            f"{titulo}: no reutiliza el eliminado",
+            (despues or {}).get("code") not in numeros,
+            f"{numeros[-1]} → {(despues or {}).get('code')}",
+        )
+
+        # Los códigos que gasta esta prueba se devuelven a la institución.
+        # El correlativo cuenta también los eliminados —a propósito, para no
+        # repetir el código de nadie en el histórico—, así que si los
+        # registros de prueba se quedaran con su prefijo, cada ejecución
+        # empujaría hacia arriba la numeración de los docentes reales.
+        devueltos = _apartar_del_correlativo(modelo, temporales)
+        comprobar(
+            f"{titulo}: devuelve los códigos gastados",
+            (devueltos or {}).get("code") == numeros[0],
+            f"vuelve a sugerir {(devueltos or {}).get('code')}",
+        )
+
     # ── Validaciones del formulario ──────────────────────────────────
     print("\n  Validación de los datos enviados")
     print("  " + "─" * 62)
@@ -310,8 +394,15 @@ def main() -> int:
     )
     comprobar("Rechaza una contraseña débil", estado == 400, mensaje[:44])
 
-    estado, _, mensaje = api("post", "/subjects", {"code": "CNA-110", "name": "Duplicada"})
-    comprobar("Rechaza un código duplicado", estado == 409, mensaje[:44])
+    # El código se toma de una asignatura creada aquí mismo: depender de las
+    # del arranque haría fallar la prueba en cuanto la institución las cambie.
+    _, ocupada, _ = api("post", "/subjects", {"code": f"{MARCA}-DUP", "name": f"{MARCA} ocupada"})
+    if ocupada:
+        creados.append(("subjects", ocupada["id"]))
+        estado, _, mensaje = api(
+            "post", "/subjects", {"code": f"{MARCA}-DUP", "name": f"{MARCA} duplicada"}
+        )
+        comprobar("Rechaza un código duplicado", estado == 409, mensaje[:44])
 
     # ── Limpieza de lo que quedara ───────────────────────────────────
     for recurso, identificador in reversed(creados):
