@@ -37,11 +37,18 @@ PANTALLAS = [
     ("Reportes", "/reportes", "Resumen consolidado"),
     ("Usuarios", "/usuarios", "Cuentas de acceso"),
     ("Roles", "/roles", "Perfiles de acceso"),
-    ("Permisos", "/permisos", "Catálogo de capacidades"),
-    ("Auditoría", "/auditoria", "Trazabilidad completa"),
     ("Código QR", "/qr", "Código QR institucional"),
-    ("Configuración", "/configuracion", "Parámetros del sistema"),
     ("Marcar asistencia", "/marcar", "Registrar asistencia"),
+]
+
+# Pantallas retiradas de la aplicación. La maquinaria sigue trabajando por
+# dentro —el control de acceso consulta los permisos, la auditoría registra
+# cada acción y el QR lee su dirección de los ajustes—, pero ya no tienen
+# página propia.
+RETIRADAS = [
+    ("Permisos", "/permisos"),
+    ("Auditoría", "/auditoria"),
+    ("Configuración", "/configuracion"),
 ]
 
 fallos = 0
@@ -101,6 +108,50 @@ def main() -> int:
             f"HTTP 200 · {len(html) // 1024} KB" if not problemas else ", ".join(problemas),
         )
 
+    # ── Pantallas retiradas ──────────────────────────────────────────
+    # Ya no existen como página, pero lo que hacían por dentro sigue vivo:
+    # se comprueba aparte, más abajo.
+    print("\n  Pantallas retiradas")
+    print("  " + "─" * 62)
+    for etiqueta, ruta in RETIRADAS:
+        respuesta = cliente.get(ruta)
+        comprobar(
+            etiqueta,
+            respuesta.status_code == 404,
+            f"HTTP {respuesta.status_code} · ya no tiene página",
+        )
+
+    # ── La maquinaria que sostenían ──────────────────────────────────
+    print("\n  Lo que siguen haciendo por dentro")
+    print("  " + "─" * 62)
+
+    respuesta = cliente.get("/api/v1/permissions/grouped")
+    grupos = (respuesta.get_json() or {}).get("data") or []
+    comprobar(
+        "Permisos por rol",
+        respuesta.status_code == 200 and len(grupos) > 0,
+        f"{sum(len(g['permissions']) for g in grupos)} permisos en {len(grupos)} módulos",
+    )
+
+    respuesta = cliente.get("/api/v1/audit?page=1&limit=1")
+    meta = (respuesta.get_json() or {}).get("data", {}).get("meta", {})
+    comprobar(
+        "Auditoría",
+        respuesta.status_code == 200 and meta.get("total", 0) > 0,
+        f"{meta.get('total', 0)} registros guardados",
+    )
+
+    # La dirección del QR sale de los ajustes: si se hubiera perdido, la
+    # pantalla del QR no tendría a dónde apuntar.
+    ajustes = (cliente.get("/api/v1/settings/qr").get_json() or {}).get("data") or {}
+    direccion = ajustes.get("publicUrl", "")
+    pagina = cliente.get("/qr").get_data(as_text=True)
+    comprobar(
+        "Dirección del QR",
+        bool(direccion) and direccion in pagina,
+        direccion or "sin configurar",
+    )
+
     # ── Recursos estáticos ───────────────────────────────────────────
     print("\n  Recursos")
     print("  " + "─" * 62)
@@ -136,7 +187,7 @@ def main() -> int:
     print("\n  Control de acceso")
     print("  " + "─" * 62)
     anonimo = app.test_client()
-    for ruta in ("/dashboard", "/docentes", "/auditoria"):
+    for ruta in ("/dashboard", "/docentes", "/roles"):
         respuesta = anonimo.get(ruta)
         comprobar(
             f"Sin sesión: {ruta}",

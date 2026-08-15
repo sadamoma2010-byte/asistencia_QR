@@ -43,7 +43,7 @@ ASISTENCIA_QR_2026_SENA/
 │   │                     horarios, asistencia, reportes, auditoría,
 │   │                     configuración
 │   ├── web/              rutas de las páginas y navegación
-│   ├── plantillas/       16 pantallas en Jinja2
+│   ├── plantillas/       13 pantallas en Jinja2
 │   └── estaticos/        CSS compilado y JavaScript propio
 ├── herramientas/         comprobaciones ejecutables
 ├── scripts/              arranque, parada, base de datos y publicación
@@ -178,7 +178,7 @@ Todas se ejecutan contra la base real y retiran lo que crean.
 |---|---|
 | `.venv\Scripts\python herramientas\verificar_modelos.py` | Que los 16 modelos casen con las tablas |
 | `.venv\Scripts\python herramientas\probar_auth.py` | Sesión, tokens, rotación y bloqueo por intentos |
-| `.venv\Scripts\python herramientas\probar_pantallas.py` | Que las 16 pantallas respondan con su contenido |
+| `.venv\Scripts\python herramientas\probar_pantallas.py` | Que las 13 pantallas respondan y que lo retirado siga funcionando por dentro |
 | `.venv\Scripts\python herramientas\probar_reglas.py` | Las reglas de negocio RN001 a RN009 |
 | `.venv\Scripts\python herramientas\probar_crud.py` | Alta, edición, relaciones y baja en cada módulo |
 | `.venv\Scripts\python herramientas\probar_qr.py` | Que el QR lleve a una dirección alcanzable y sirva a todos |
@@ -247,6 +247,28 @@ corresponda en cada institución, sin que nadie pierda un solo permiso.
 Los roles del sistema **se pueden renombrar** pero no eliminar ni inactivar, y
 al de control total no se le pueden recortar los permisos: los tiene todos por
 definición.
+
+---
+
+## Lo que trabaja sin tener pantalla
+
+Tres piezas del sistema no aparecen en el menú, pero sostienen todo lo demás.
+Se retiraron de la vista porque nadie las usa a diario; **su maquinaria sigue
+intacta** y las tablas siguen en la base.
+
+| Pieza | Qué sigue haciendo | Dónde se nota |
+|---|---|---|
+| **Permisos** | El control de acceso consulta `permissions` en cada petición para saber qué puede hacer cada quien | En `Roles`, marcando qué permisos tiene cada perfil |
+| **Auditoría** | Registra usuario, acción, fecha, IP y dispositivo de cada operación (RN009) | En el histórico, que se conserva como evidencia |
+| **Configuración** | De ella salen la dirección del QR, la zona horaria y la ventana de marcación | En `Código QR`, que sigue permitiendo cambiar su dirección |
+
+Las tres siguen atendiendo por la API (`/permissions`, `/audit`, `/settings`),
+así que devolverles la pantalla es cuestión de reponer su entrada en
+`aplicacion/web/navegacion.py` y su definición en `web/listados.py`.
+
+`herramientas/probar_pantallas.py` lo comprueba en cada ejecución: que las tres
+direcciones den 404 y que, por dentro, los permisos se sigan repartiendo, la
+auditoría siga creciendo y el QR conserve su dirección.
 
 ---
 

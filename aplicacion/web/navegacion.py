@@ -63,24 +63,12 @@ ICONOS = {
     "reportes": _icono(
         '<path d="M5 19V9M12 19V5M19 19v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'
     ),
-    "auditoria": _icono(
-        '<path d="M12 3l7 3v5.5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5V6l7-3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
-        '<path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'
-    ),
     "usuarios": _icono(
         '<circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.6"/>'
         '<path d="M5 20a7 7 0 0114 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
     ),
     "roles": _icono(
         '<path d="M12 3l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.2l5.9-.8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
-    ),
-    "permisos": _icono(
-        '<rect x="4" y="10" width="16" height="10" rx="2" stroke="currentColor" stroke-width="1.6"/>'
-        '<path d="M8 10V7a4 4 0 118 0v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
-    ),
-    "configuracion": _icono(
-        '<circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>'
-        '<path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6M18.4 18.4l-1.6-1.6M7.2 7.2L5.6 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
     ),
 }
 
@@ -112,9 +100,6 @@ ESTRUCTURA = (
         (
             ("/usuarios", "Usuarios", "usuarios", "users.read"),
             ("/roles", "Roles", "roles", "roles.read"),
-            ("/permisos", "Permisos", "permisos", "permissions.read"),
-            ("/auditoria", "Auditoría", "auditoria", "audit.read"),
-            ("/configuracion", "Configuración", "configuracion", "settings.read"),
         ),
     ),
 )

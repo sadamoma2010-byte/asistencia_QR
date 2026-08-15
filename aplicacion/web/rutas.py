@@ -108,8 +108,6 @@ LISTADOS = {
     "asistencia": ("Asistencia", "attendance.read"),
     "usuarios": ("Usuarios", "users.read"),
     "roles": ("Roles", "roles.read"),
-    "permisos": ("Permisos", "permissions.read"),
-    "auditoria": ("Auditoría", "audit.read"),
     "reportes": ("Reportes", "reports.read"),
 }
 
@@ -145,14 +143,6 @@ def codigo_qr():
         sugerida=red.url_sugerida(current_app.config["PUERTO"]),
         alcanzable=red.es_alcanzable_desde_fuera(datos.get("publicUrl", "")),
         **_contexto("Código QR"),
-    )
-
-
-@bp.get("/configuracion")
-@con_sesion("settings.read")
-def ajustes():
-    return render_template(
-        "configuracion.html", grupos=configuracion.listar(), **_contexto("Configuración")
     )
 
 

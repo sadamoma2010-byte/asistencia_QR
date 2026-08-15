@@ -280,52 +280,6 @@ DEFINICIONES: dict[str, dict] = {
             {"tipo": "estado"},
         ],
     },
-    "permisos": {
-        "recurso": "permissions",
-        "titulo": "Permisos",
-        "descripcion": "Catálogo de capacidades granulares del sistema.",
-        "singular": "permiso",
-        "permiso": "permissions",
-        "ordenar": "module",
-        "columnas": [
-            _columna("code", "Código", tipo="codigo", ordenable="code"),
-            _columna("name", "Permiso", tipo="destacado", ordenable="name"),
-            _columna("module", "Módulo", tipo="insignia", ordenable="module"),
-            _columna("_count.roles", "Roles", tipo="contador"),
-            _columna("isSystem", "Del sistema", tipo="si_no"),
-            _columna("status", "Estado", tipo="estado", ordenable="status"),
-        ],
-        "filtros": [
-            {"tipo": "busqueda", "campo": "search", "texto": "Buscar por código, nombre o módulo"},
-            {"tipo": "estado"},
-        ],
-    },
-    "auditoria": {
-        "recurso": "audit",
-        "titulo": "Auditoría",
-        "descripcion": "Trazabilidad completa: usuario, acción, fecha, hora, IP y dispositivo (RN009).",
-        "singular": "registro",
-        "permiso": "audit",
-        "solo_lectura": True,
-        "ordenar": "createdAt",
-        "columnas": [
-            _columna("evento", "Evento", tipo="evento"),
-            _columna("action", "Acción", tipo="accion", ordenable="action"),
-            _columna("module", "Módulo", tipo="insignia", ordenable="module"),
-            _columna("createdAt", "Fecha y hora", tipo="fecha_hora", ordenable="createdAt"),
-            _columna("ipAddress", "IP", tipo="texto"),
-        ],
-        "filtros": [
-            {"tipo": "busqueda", "campo": "search", "texto": "Buscar por descripción, usuario o módulo"},
-            {"tipo": "fecha", "campo": "dateFrom", "texto": "Desde"},
-            {"tipo": "fecha", "campo": "dateTo", "texto": "Hasta"},
-            {"tipo": "opciones", "campo": "action", "texto": "Todas las acciones",
-             "opciones": [("CREATE", "Creación"), ("UPDATE", "Actualización"),
-                          ("DELETE", "Eliminación"), ("ACTIVATE", "Activación"),
-                          ("DEACTIVATE", "Inactivación"), ("LOGIN", "Inicio de sesión"),
-                          ("LOGOUT", "Cierre de sesión"), ("ATTENDANCE", "Asistencia")]},
-        ],
-    },
 }
 
 

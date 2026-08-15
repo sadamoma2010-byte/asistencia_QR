@@ -215,19 +215,6 @@ FORMULARIOS: dict[str, dict] = {
                   ayuda="El rol con control total los tiene todos por definición y no se editan"),
         ],
     },
-    "permisos": {
-        "recurso": "permissions",
-        "singular": "permiso",
-        "genero": "el",
-        "campos": [
-            campo("code", "Código", obligatorio=True, ancho="mitad",
-                  ayuda="Formato modulo.accion, por ejemplo docentes.crear"),
-            campo("module", "Módulo", obligatorio=True, ancho="mitad"),
-            campo("name", "Nombre", obligatorio=True),
-            campo("description", "Descripción", "parrafo"),
-            ESTADO,
-        ],
-    },
 }
 
 
