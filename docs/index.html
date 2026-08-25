@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4F46E5">
+  <meta name="description" content="Sistema Web de Asistencia Docente por QR - Plataforma SaaS para control de asistencia mediante código QR institucional">
+  <title>Asistencia QR · Sistema de Asistencia Docente</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { DEFAULT: '#4F46E5', hover: '#4338CA', light: '#EEF2FF' },
+            dark: { 900: '#0F172A', 800: '#1E293B', 700: '#334155' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .gradient-bg { background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%); }
+    .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+    .glow { box-shadow: 0 0 60px rgba(79,70,229,0.3); }
+    .orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.4; }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+    .animate-float { animation: float 8s ease-in-out infinite; }
+    .feature-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+    .feature-card { transition: all 0.3s ease; }
+    html { scroll-behavior: smooth; }
+  </style>
+</head>
+<body class="gradient-bg min-h-screen text-white font-sans antialiased">
+
+  <!-- Orbes de fondo -->
+  <div class="fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
+    <div class="orb bg-indigo-600 animate-float" style="width:520px;height:520px;top:-180px;left:-140px;"></div>
+    <div class="orb bg-emerald-600 animate-float" style="width:460px;height:460px;bottom:-160px;right:-120px;animation-delay:-5s;"></div>
+    <div class="orb bg-blue-600 animate-float" style="width:400px;height:400px;top:40%;right:18%;animation-delay:-9s;"></div>
+  </div>
+
+  <!-- Navbar -->
+  <nav class="fixed top-0 left-0 right-0 z-50 glass">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+            </svg>
+          </div>
+          <span class="text-lg font-bold tracking-tight">Asistencia QR</span>
+        </div>
+        <div class="hidden sm:flex items-center gap-8 text-sm text-gray-300">
+          <a href="#caracteristicas" class="hover:text-white transition">Características</a>
+          <a href="#arquitectura" class="hover:text-white transition">Arquitectura</a>
+          <a href="#api" class="hover:text-white transition">API</a>
+          <a href="#instalacion" class="hover:text-white transition">Instalación</a>
+          <a href="https://github.com/sadamoma2010-byte/asistencia_QR" target="_blank"
+             class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            GitHub
+          </a>
+        </div>
+        <button id="menu-btn" class="sm:hidden p-2 rounded-lg hover:bg-white/10 transition">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <!-- Mobile menu -->
+    <div id="mobile-menu" class="hidden sm:hidden border-t border-white/10 px-4 pb-4">
+      <a href="#caracteristicas" class="block py-2 text-gray-300 hover:text-white">Características</a>
+      <a href="#arquitectura" class="block py-2 text-gray-300 hover:text-white">Arquitectura</a>
+      <a href="#api" class="block py-2 text-gray-300 hover:text-white">API</a>
+      <a href="#instalacion" class="block py-2 text-gray-300 hover:text-white">Instalación</a>
+      <a href="https://github.com/sadamoma2010-byte/asistencia_QR" target="_blank"
+         class="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto text-center">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-sm text-indigo-300 mb-8">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        v3.7.0 · Python + Flask
+      </div>
+      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-tight">
+        Asistencia Docente<br>
+        <span class="bg-gradient-to-r from-indigo-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent">
+          por Código QR
+        </span>
+      </h1>
+      <p class="mt-6 text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed">
+        Plataforma SaaS para el control de asistencia docente mediante un
+        <strong class="text-white">único código QR institucional</strong>.
+        Registra entradas y salidas, detecta tardanzas, genera reportes exportables a Excel
+        y mantiene auditoría completa.
+      </p>
+      <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="#instalacion"
+           class="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-500/30 hover:bg-indigo-500 transition text-lg">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Instalar
+        </a>
+        <a href="https://github.com/sadamoma2010-byte/asistencia_QR" target="_blank"
+           class="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl glass text-white font-semibold hover:bg-white/10 transition text-lg">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          Ver código fuente
+        </a>
+      </div>
+
+      <!-- Stats -->
+      <div class="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl mx-auto">
+        <div class="glass rounded-xl p-4 text-center">
+          <div class="text-3xl font-bold text-indigo-400">16</div>
+          <div class="text-sm text-gray-400 mt-1">Modelos SQLAlchemy</div>
+        </div>
+        <div class="glass rounded-xl p-4 text-center">
+          <div class="text-3xl font-bold text-emerald-400">14</div>
+          <div class="text-sm text-gray-400 mt-1">Módulos API</div>
+        </div>
+        <div class="glass rounded-xl p-4 text-center">
+          <div class="text-3xl font-bold text-purple-400">9</div>
+          <div class="text-sm text-gray-400 mt-1">Reglas de Negocio</div>
+        </div>
+        <div class="glass rounded-xl p-4 text-center">
+          <div class="text-3xl font-bold text-amber-400">13</div>
+          <div class="text-sm text-gray-400 mt-1">Pantallas</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stack -->
+  <section class="py-16 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto">
+      <div class="glass rounded-2xl p-6 sm:p-8 glow">
+        <h2 class="text-center text-sm font-semibold text-indigo-400 uppercase tracking-widest mb-6">Stack Tecnológico</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div class="text-center p-4 rounded-xl bg-white/5 hover:bg-white/10 transition">
+            <div class="text-2xl mb-2">🐍</div>
+            <div class="font-semibold text-sm">Python 3.12</div>
+            <div class="text-xs text-gray-400 mt-1">Flask 3</div>
+          </div>
+          <div class="text-center p-4 rounded-xl bg-white/5 hover:bg-white/10 transition">
+            <div class="text-2xl mb-2">🐘</div>
+            <div class="font-semibold text-sm">PostgreSQL 16</div>
+            <div class="text-xs text-gray-400 mt-1">SQLAlchemy 2</div>
+          </div>
+          <div class="text-center p-4 rounded-xl bg-white/5 hover:bg-white/10 transition">
+            <div class="text-2xl mb-2">🎨</div>
+            <div class="font-semibold text-sm">Tailwind CSS</div>
+            <div class="text-xs text-gray-400 mt-1">Jinja2</div>
+          </div>
+          <div class="text-center p-4 rounded-xl bg-white/5 hover:bg-white/10 transition">
+            <div class="text-2xl mb-2">🔐</div>
+            <div class="font-semibold text-sm">JWT + bcrypt</div>
+            <div class="text-xs text-gray-400 mt-1">RBAC</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Características -->
+  <section id="caracteristicas" class="py-20 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">Características principales</h2>
+        <p class="mt-4 text-gray-400 max-w-2xl mx-auto">Todo lo que necesitas para controlar la asistencia docente de tu institución</p>
+      </div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <div class="feature-card glass rounded-2xl p-6">
+          <div class="w-12 h-12 rounded-xl bg-indigo-600/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg mb-2">Código QR Institucional</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Un solo QR para toda la institución. Descargable en PNG y SVG, colocado en el punto de acceso.</p>
+        </div>
+
+        <div class="feature-card glass rounded-2xl p-6">
+          <div class="w-12 h-12 rounded-xl bg-emerald-600/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg mb-2">Detección Automática de Tardanzas</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Calcula puntualidad automáticamente según horarios y tolerancia configurable. Reglas RN007 y RN008.</p>
+        </div>
+
+        <div class="feature-card glass rounded-2xl p-6">
+          <div class="w-12 h-12 rounded-xl bg-purple-600/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg mb-2">Reportes Exportables a Excel</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Genera informes completos de asistencia y los exporta a Excel con openpyxl para análisis externo.</p>
+        </div>
+
+        <div class="feature-card glass rounded-2xl p-6">
+          <div class="w-12 h-12 rounded-xl bg-amber-600/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg mb-2">Seguridad JWT + RBAC</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Token de acceso (15 min) y refresco rotativo (7 días). bcrypt con 12 rondas. Permisos granulares por módulo.</p>
+        </div>
+
+        <div class="feature-card glass rounded-2xl p-6">
+          <div class="w-12 h-12 rounded-xl bg-rose-600/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg mb-2">PostgreSQL con ORM</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">16 modelos SQLAlchemy, tipos ENUM nativos, JSONB con índice GIN, búsquedas con ILIKE.</p>
+        </div>
+
+        <div class="feature-card glass rounded-2xl p-6">
+          <div class="w-12 h-12 rounded-xl bg-cyan-600/20 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg mb-2">Auditoría Completa</h3>
+          <p class="text-sm text-gray-400 leading-relaxed">Registra usuario, acción, fecha, IP y dispositivo de cada operación. Evidencia inmutable (RN009).</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Flujo QR -->
+  <section class="py-20 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">Flujo del QR Institucional</h2>
+        <p class="mt-4 text-gray-400">Un solo código para toda la institución</p>
+      </div>
+      <div class="space-y-8">
+        <div class="flex items-start gap-6 glass rounded-2xl p-6">
+          <div class="flex-shrink-0 w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-sm">1</div>
+          <div>
+            <h3 class="font-bold text-lg">Configurar la dirección</h3>
+            <p class="text-gray-400 text-sm mt-1">El administrador abre <code class="text-indigo-300">Código QR</code>. La pantalla detecta la dirección del equipo en la red y la propone; basta con guardarla.</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-6 glass rounded-2xl p-6">
+          <div class="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-sm">2</div>
+          <div>
+            <h3 class="font-bold text-lg">Generar e imprimir</h3>
+            <p class="text-gray-400 text-sm mt-1">El sistema genera el QR (descargable en PNG y SVG) apuntando a <code class="text-emerald-300">/marcar</code>. Se imprime y coloca en el punto de acceso.</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-6 glass rounded-2xl p-6">
+          <div class="flex-shrink-0 w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center font-bold text-sm">3</div>
+          <div>
+            <h3 class="font-bold text-lg">Escanear y entrar</h3>
+            <p class="text-gray-400 text-sm mt-1">Cualquier docente escanea el QR, entra con su cuenta y el sistema reconoce de quién se trata: cada uno llega a su propia pantalla.</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-6 glass rounded-2xl p-6">
+          <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-600 flex items-center justify-center font-bold text-sm">4</div>
+          <div>
+            <h3 class="font-bold text-lg">Registrar asistencia</h3>
+            <p class="text-gray-400 text-sm mt-1">Pulsa <strong class="text-white">Registrar entrada</strong> o <strong class="text-white">Registrar salida</strong>. Se validan las reglas RN001–RN009, se calcula la puntualidad y queda auditado.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Roles -->
+  <section class="py-20 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">Roles del Sistema</h2>
+        <p class="mt-4 text-gray-400">RBAC con permisos granulares por módulo</p>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-6">
+        <div class="glass rounded-2xl p-6 border-l-4 border-indigo-500">
+          <div class="text-sm text-indigo-400 font-mono mb-1">SUPER_ADMIN</div>
+          <h3 class="font-bold text-lg">Rector(a)</h3>
+          <p class="text-sm text-gray-400 mt-2">Control total. Todo, incluido el borrado de marcaciones. No se le pueden recortar permisos.</p>
+        </div>
+        <div class="glass rounded-2xl p-6 border-l-4 border-emerald-500">
+          <div class="text-sm text-emerald-400 font-mono mb-1">ADMINISTRADOR</div>
+          <h3 class="font-bold text-lg">Administrador(a)</h3>
+          <p class="text-sm text-gray-400 mt-2">Gestión operativa completa del sistema.</p>
+        </div>
+        <div class="glass rounded-2xl p-6 border-l-4 border-purple-500">
+          <div class="text-sm text-purple-400 font-mono mb-1">COORDINADOR</div>
+          <h3 class="font-bold text-lg">Coordinador(a)</h3>
+          <p class="text-sm text-gray-400 mt-2">Supervisa docentes, horarios y reportes.</p>
+        </div>
+        <div class="glass rounded-2xl p-6 border-l-4 border-amber-500">
+          <div class="text-sm text-amber-400 font-mono mb-1">DOCENTE</div>
+          <h3 class="font-bold text-lg">Docente</h3>
+          <p class="text-sm text-gray-400 mt-2">Registra su asistencia y consulta su historial.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- API -->
+  <section id="api" class="py-20 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">API REST</h2>
+        <p class="mt-4 text-gray-400">Contrato estándar por módulo, base: <code class="text-indigo-300">/api/v1</code></p>
+      </div>
+      <div class="glass rounded-2xl p-6 sm:p-8 overflow-x-auto">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm font-mono">
+          <div class="p-3 rounded-lg bg-white/5"><span class="text-emerald-400">GET</span> <span class="text-gray-300">/module</span><br><span class="text-gray-500 text-xs">Listado paginado</span></div>
+          <div class="p-3 rounded-lg bg-white/5"><span class="text-emerald-400">GET</span> <span class="text-gray-300">/module/:id</span><br><span class="text-gray-500 text-xs">Detalle</span></div>
+          <div class="p-3 rounded-lg bg-white/5"><span class="text-blue-400">POST</span> <span class="text-gray-300">/module</span><br><span class="text-gray-500 text-xs">Crear</span></div>
+          <div class="p-3 rounded-lg bg-white/5"><span class="text-amber-400">PATCH</span> <span class="text-gray-300">/module/:id</span><br><span class="text-gray-500 text-xs">Actualizar</span></div>
+          <div class="p-3 rounded-lg bg-white/5"><span class="text-red-400">DELETE</span> <span class="text-gray-300">/module/:id</span><br><span class="text-gray-500 text-xs">Soft delete</span></div>
+          <div class="p-3 rounded-lg bg-white/5"><span class="text-amber-400">PATCH</span> <span class="text-gray-300">/module/:id/activate</span><br><span class="text-gray-500 text-xs">Activar</span></div>
+          <div class="p-3 rounded-lg bg-white/5"><span class="text-amber-400">PATCH</span> <span class="text-gray-300">/module/:id/deactivate</span><br><span class="text-gray-500 text-xs">Inactivar</span></div>
+          <div class="p-3 rounded-lg bg-white/5"><span class="text-emerald-400">GET</span> <span class="text-gray-300">/module/export</span><br><span class="text-gray-500 text-xs">Excel</span></div>
+        </div>
+        <div class="mt-6 pt-6 border-t border-white/10 text-sm text-gray-400">
+          <strong class="text-white">14 módulos:</strong> auth, users, roles, permissions, teachers, subjects, grades, courses, shifts, schedules, attendance, reports, audit, settings
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Instalación -->
+  <section id="instalacion" class="py-20 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">Instalación</h2>
+        <p class="mt-4 text-gray-400">Requiere Python 3.12+ y PostgreSQL 16+</p>
+      </div>
+      <div class="space-y-6">
+
+        <div class="glass rounded-2xl p-6">
+          <h3 class="font-bold text-lg flex items-center gap-3 mb-4">
+            <span class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm">1</span>
+            Clonar el repositorio
+          </h3>
+          <pre class="bg-black/30 rounded-xl p-4 text-sm text-emerald-300 overflow-x-auto"><code>git clone https://github.com/sadamoma2010-byte/asistencia_QR.git
+cd asistencia_QR</code></pre>
+        </div>
+
+        <div class="glass rounded-2xl p-6">
+          <h3 class="font-bold text-lg flex items-center gap-3 mb-4">
+            <span class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm">2</span>
+            Crear entorno virtual e instalar dependencias
+          </h3>
+          <pre class="bg-black/30 rounded-xl p-4 text-sm text-emerald-300 overflow-x-auto"><code>python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt</code></pre>
+        </div>
+
+        <div class="glass rounded-2xl p-6">
+          <h3 class="font-bold text-lg flex items-center gap-3 mb-4">
+            <span class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm">3</span>
+            Configurar la base de datos
+          </h3>
+          <pre class="bg-black/30 rounded-xl p-4 text-sm text-emerald-300 overflow-x-auto"><code>createdb -U postgres asistencia_qr
+psql -U postgres -d asistencia_qr -f database.sql</code></pre>
+          <p class="text-sm text-gray-400 mt-3">Escribe la conexión en <code class="text-indigo-300">.env</code>:</p>
+          <pre class="bg-black/30 rounded-xl p-4 text-sm text-amber-300 mt-2 overflow-x-auto"><code>DATABASE_URL=postgresql://usuario:contraseña@localhost:5432/asistencia_qr</code></pre>
+        </div>
+
+        <div class="glass rounded-2xl p-6">
+          <h3 class="font-bold text-lg flex items-center gap-3 mb-4">
+            <span class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-sm">4</span>
+            Iniciar la aplicación
+          </h3>
+          <pre class="bg-black/30 rounded-xl p-4 text-sm text-emerald-300 overflow-x-auto"><code>python servidor.py</code></pre>
+          <p class="text-sm text-gray-400 mt-3">Aplicación: <code class="text-white">http://localhost:4000</code> · API: <code class="text-white">http://localhost:4000/api/v1</code></p>
+        </div>
+
+        <div class="glass rounded-2xl p-6 border border-amber-500/30">
+          <h3 class="font-bold text-lg flex items-center gap-3 mb-2">
+            <span class="text-amber-400">🔑</span>
+            Credenciales iniciales
+          </h3>
+          <div class="grid sm:grid-cols-2 gap-4 mt-4 text-sm">
+            <div><span class="text-gray-400">Correo:</span> <code class="text-white">admin@datly.local</code></div>
+            <div><span class="text-gray-400">Password:</span> <code class="text-white">Admin123*</code></div>
+            <div><span class="text-gray-400">Rol:</span> <span class="text-white">Rector(a)</span></div>
+            <div><span class="text-gray-400">Estado:</span> <span class="text-emerald-400">ACTIVO</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Arquitectura -->
+  <section id="arquitectura" class="py-20 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">Arquitectura</h2>
+        <p class="mt-4 text-gray-400">Un solo proceso Flask sirve páginas HTML, API REST y archivos subidos</p>
+      </div>
+      <div class="glass rounded-2xl p-6 sm:p-8">
+        <pre class="text-sm text-gray-300 overflow-x-auto leading-relaxed"><code>ASISTENCIA_QR/
+├── servidor.py           arranque
+├── aplicacion/
+│   ├── config.py         configuración por variables de entorno
+│   ├── extensiones.py    base de datos y límite de peticiones
+│   ├── modelos/          16 modelos SQLAlchemy
+│   ├── comun/            respuestas, errores, seguridad, paginación,
+│   │                     tiempo, auditoría, Excel, subidas
+│   ├── modulos/          14 módulos: auth, usuarios, roles, permisos,
+│   │                     docentes, asignaturas, grados, cursos, jornadas,
+│   │                     horarios, asistencia, reportes, auditoría,
+│   │                     configuración
+│   ├── web/              rutas de las páginas y navegación
+│   ├── plantillas/       13 pantallas en Jinja2
+│   └── estaticos/        CSS compilado y JavaScript propio
+├── herramientas/         comprobaciones ejecutables
+├── scripts/              arranque, parada, base de datos y publicación
+├── database.sql          estructura completa de la base
+└── .env                  conexión y secretos (fuera del repositorio)</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-12 px-4 sm:px-6 lg:px-8 border-t border-white/10">
+    <div class="max-w-5xl mx-auto text-center">
+      <div class="flex items-center justify-center gap-3 mb-4">
+        <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+          </svg>
+        </div>
+        <span class="font-bold">Asistencia QR</span>
+      </div>
+      <p class="text-sm text-gray-400">Sistema de Asistencia Docente por Código QR · v3.7.0</p>
+      <p class="text-xs text-gray-500 mt-2">Desarrollado con Python + Flask · PostgreSQL · Tailwind CSS</p>
+      <div class="mt-6 flex items-center justify-center gap-4">
+        <a href="https://github.com/sadamoma2010-byte/asistencia_QR" target="_blank"
+           class="text-gray-400 hover:text-white transition">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('menu-btn').addEventListener('click', () => {
+      document.getElementById('mobile-menu').classList.toggle('hidden');
+    });
+    document.querySelectorAll('#mobile-menu a').forEach(a => {
+      a.addEventListener('click', () => document.getElementById('mobile-menu').classList.add('hidden'));
+    });
+  </script>
+
+</body>
+</html>
