@@ -1,34 +1,9 @@
-# ── Credenciales ─────────────────────────────
-# Nunca se publican: la conexión a la base y los secretos viven aquí
-.env
-.env.local
-.env.*.local
-!.env.example
-
-# ── Python ───────────────────────────────────
 .venv/
 __pycache__/
-*.py[cod]
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-
-# ── Archivos subidos por los usuarios ────────
-# Las fotografías de los docentes son datos del centro, no código
+*.pyc
+*.pyo
+*.pyd
 uploads/
-exports/
-tmp/
-
-# ── Node (solo se usa para compilar el CSS) ──
-node_modules/
-
-# ── Registros y temporales ───────────────────
-*.log
-npm-debug.log*
-
-# ── Sistema y editores ───────────────────────
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/*
-!.vscode/extensions.json
+.env
+*.db
+*.sqlite3
