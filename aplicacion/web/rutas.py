@@ -75,7 +75,9 @@ def _contexto(titulo: str) -> dict:
 
 @bp.get("/")
 def inicio():
-    return redirect("/dashboard" if usuario_actual() else "/login")
+    if usuario_actual():
+        return redirect("/dashboard")
+    return render_template("inicio.html")
 
 
 @bp.get("/login")
