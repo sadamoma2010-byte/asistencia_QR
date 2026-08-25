@@ -27,6 +27,51 @@ genera reportes exportables a Excel y mantiene auditoría completa de todas las 
 
 ---
 
+## Inicio rápido con Docker
+
+La forma más fácil de ejecutar el proyecto. Solo necesita Docker instalado:
+
+```bash
+git clone https://github.com/sadamoma2010-byte/asistencia_QR.git
+cd asistencia_QR
+docker compose up -d
+```
+
+Esto levanta PostgreSQL y la aplicación automáticamente. La base de datos se crea
+con datos de ejemplo (roles, permisos, grados, cursos, asignaturas y un usuario admin).
+
+| Servicio | Dirección |
+|---|---|
+| Aplicación | http://localhost:4000 |
+| API | http://localhost:4000/api/v1 |
+| PostgreSQL | localhost:5432 |
+
+### Credenciales iniciales
+
+| Campo | Valor |
+|---|---|
+| Correo | `admin@datly.local` |
+| Password | `Admin123*` |
+| Rol | `Rector(a)` |
+
+### Comandos útiles
+
+```bash
+# Ver logs
+docker compose logs -f app
+
+# Detener
+docker compose down
+
+# Detener y borrar datos
+docker compose down -v
+
+# Reconstruir tras cambios
+docker compose up -d --build
+```
+
+---
+
 ## Arquitectura
 
 ```
