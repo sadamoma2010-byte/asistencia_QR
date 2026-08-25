@@ -1,261 +1,282 @@
 {% extends "base.html" %}
-{% block titulo %}Sistema de Asistencia Docente por QR{% endblock %}
+{% block titulo %}SAD · Sistema de Asistencia Docente{% endblock %}
 
 {% block cuerpo %}
-<main class="flex min-h-screen flex-col">
 
-  {# ── Navbar ─────────────────────────────────────────────── #}
-  <nav class="fixed top-0 left-0 right-0 z-50 glass-card border-b border-border/50">
-    <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center gap-3">
-        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-glow">
-          {% include "componentes/logo.html" %}
-        </div>
-        <span class="text-lg font-bold tracking-tight text-foreground">Asistencia QR</span>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  body { font-family: 'Inter', system-ui, sans-serif; overflow-x: hidden; }
+
+  /* ── Aurora mesh gradient background ── */
+  .aurora-bg {
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 50%, rgba(255,255,255,1) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 50% at 15% 10%, rgba(200,180,240,0.5) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 85% 90%, rgba(180,240,230,0.5) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 80% 10%, rgba(220,200,255,0.3) 0%, transparent 50%),
+      radial-gradient(ellipse 40% 40% at 10% 80%, rgba(170,235,225,0.3) 0%, transparent 50%),
+      linear-gradient(135deg, #f8f7ff 0%, #ffffff 40%, #f0fdf9 100%);
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+  }
+
+  /* ── Soft floating orbs ── */
+  .aurora-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.35;
+    animation: orbFloat 12s ease-in-out infinite;
+  }
+  @keyframes orbFloat {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-25px) scale(1.05); }
+  }
+
+  /* ── Glass cards ── */
+  .glass-card {
+    background: rgba(255,255,255,0.55);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.7);
+    box-shadow:
+      0 8px 32px rgba(79,70,229,0.06),
+      0 2px 8px rgba(0,0,0,0.04),
+      inset 0 1px 0 rgba(255,255,255,0.8);
+  }
+
+  .glass-pill {
+    background: rgba(255,255,255,0.45);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.6);
+    box-shadow:
+      0 4px 24px rgba(79,70,229,0.05),
+      inset 0 1px 0 rgba(255,255,255,0.7);
+  }
+
+  /* ── Indigo glow button ── */
+  .btn-indigo {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%);
+    box-shadow:
+      0 4px 20px rgba(79,70,229,0.35),
+      0 0 40px rgba(99,102,241,0.15);
+    transition: all 0.3s ease;
+  }
+  .btn-indigo:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 8px 30px rgba(79,70,229,0.45),
+      0 0 60px rgba(99,102,241,0.2);
+  }
+
+  /* ── Card hover ── */
+  .stat-card {
+    transition: all 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+  }
+  .stat-card:hover {
+    transform: translateY(-8px);
+    box-shadow:
+      0 20px 50px rgba(79,70,229,0.1),
+      0 4px 15px rgba(0,0,0,0.05),
+      inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+
+  /* ── Slide up animation ── */
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .anim-up { animation: slideUp 0.8s ease-out forwards; }
+  .anim-up-1 { animation: slideUp 0.8s ease-out 0.1s forwards; opacity: 0; }
+  .anim-up-2 { animation: slideUp 0.8s ease-out 0.25s forwards; opacity: 0; }
+  .anim-up-3 { animation: slideUp 0.8s ease-out 0.4s forwards; opacity: 0; }
+  .anim-up-4 { animation: slideUp 0.8s ease-out 0.55s forwards; opacity: 0; }
+
+  /* ── Navbar glass ── */
+  .nav-glass {
+    background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid rgba(255,255,255,0.5);
+  }
+
+  /* ── Gradient text ── */
+  .text-gradient {
+    background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 40%, #6366f1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+</style>
+
+{# ── Aurora background ── #}
+<div class="aurora-bg" aria-hidden="true">
+  <div class="aurora-orb" style="width:600px;height:600px;top:-200px;left:-150px;background:radial-gradient(circle,rgba(196,181,253,0.5),transparent 70%);animation-delay:0s;"></div>
+  <div class="aurora-orb" style="width:500px;height:500px;bottom:-200px;right:-100px;background:radial-gradient(circle,rgba(167,243,208,0.5),transparent 70%);animation-delay:-4s;"></div>
+  <div class="aurora-orb" style="width:350px;height:350px;top:30%;right:25%;background:radial-gradient(circle,rgba(199,210,254,0.3),transparent 70%);animation-delay:-8s;"></div>
+</div>
+
+{# ── Navbar ── #}
+<nav class="nav-glass fixed top-0 left-0 right-0 z-50">
+  <div class="mx-auto flex h-[68px] max-w-7xl items-center justify-between px-6 lg:px-8">
+    <div class="flex items-center gap-3">
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg shadow-indigo-500/25">
+        {% include "componentes/logo.html" %}
       </div>
+      <span class="text-lg font-bold tracking-tight text-gray-800">SAD</span>
+    </div>
+    <a href="/login"
+       class="btn-indigo inline-flex items-center gap-2 rounded-full px-7 py-2.5 text-sm font-semibold text-white">
+      Acceder
+      <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+      </svg>
+    </a>
+  </div>
+</nav>
+
+{# ── Hero ── #}
+<section class="relative flex min-h-screen flex-col items-center justify-center px-6 pt-20 pb-16">
+
+  <div class="mx-auto max-w-4xl text-center">
+
+    {# Badge #}
+    <div class="anim-up mb-8 inline-flex items-center gap-2 rounded-full glass-pill px-5 py-2">
+      <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span class="text-xs font-medium text-gray-500 tracking-wide">v3.7.0 · Python + Flask · PostgreSQL</span>
+    </div>
+
+    {# Title #}
+    <h1 class="anim-up-1 text-5xl font-black tracking-tight text-gray-800 sm:text-6xl lg:text-7xl leading-[1.05]">
+      BIENVENIDO AL
+      <span class="text-gradient block mt-1">SAD</span>
+    </h1>
+
+    {# Subtitle #}
+    <p class="anim-up-2 mx-auto mt-6 max-w-xl text-lg text-gray-500 leading-relaxed font-light">
+      Sistema de Asistencia Docente. Control inteligente de asistencia mediante
+      <span class="font-medium text-gray-700">código QR institucional</span>.
+    </p>
+
+    {# CTA Button #}
+    <div class="anim-up-2 mt-10">
       <a href="/login"
-         class="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold
-                text-primary-foreground shadow-glow transition hover:bg-primary-hover
-                focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-        Iniciar sesión
+         class="btn-indigo inline-flex items-center gap-3 rounded-full px-10 py-4 text-base font-semibold text-white">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
+        </svg>
+        Ingresar al sistema
       </a>
     </div>
-  </nav>
 
-  {# ── Hero ───────────────────────────────────────────────── #}
-  <section class="flex flex-1 items-center px-4 pt-24 pb-16 sm:px-6 lg:px-8">
-    <div class="mx-auto max-w-6xl w-full">
+    {# ── Stat Cards ── #}
+    <div class="anim-up-3 mt-16 grid grid-cols-2 gap-5 sm:gap-6 lg:grid-cols-4">
 
-      <div class="grid items-center gap-12 lg:grid-cols-2">
-
-        {# Texto #}
-        <div class="text-center lg:text-left animate-slide-up">
-          <div class="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/50
-                      px-4 py-1.5 text-xs font-medium text-muted-foreground mb-6">
-            <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            v3.7.0 · Python + Flask
-          </div>
-
-          <h1 class="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl lg:text-6xl leading-[1.1]">
-            Asistencia Docente<br>
-            <span class="bg-gradient-to-r from-primary via-purple-500 to-emerald-500 bg-clip-text text-transparent">
-              por Código QR
-            </span>
-          </h1>
-
-          <p class="mt-6 max-w-lg text-lg leading-relaxed text-muted-foreground mx-auto lg:mx-0">
-            Control y seguimiento de la asistencia docente mediante un
-            <strong class="text-foreground">único código QR institucional</strong>.
-            Registra entradas y salidas, detecta tardanzas y genera reportes.
-          </p>
-
-          <div class="mt-8 flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
-            <a href="/login"
-               class="inline-flex h-12 items-center gap-2.5 rounded-xl bg-primary px-8 text-sm font-semibold
-                      text-primary-foreground shadow-glow transition hover:bg-primary-hover
-                      focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                      d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/>
-              </svg>
-              Ingresar al sistema
-            </a>
-            <a href="#caracteristicas"
-               class="inline-flex h-12 items-center gap-2 rounded-xl border border-border bg-card/50 px-6 text-sm
-                      font-medium text-foreground transition hover:bg-card
-                      focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-              Conocer más
-              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
-              </svg>
-            </a>
-          </div>
+      {# Card 1 #}
+      <div class="stat-card glass-card group rounded-2xl p-6 text-center">
+        <div class="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 transition group-hover:bg-indigo-100">
+          <svg class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
+          </svg>
         </div>
-
-        {# Tarjeta visual #}
-        <div class="hidden lg:flex justify-center animate-float">
-          <div class="relative">
-            <div class="glass-card rounded-3xl p-8 shadow-elevated w-80">
-              <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-glow mb-5">
-                {% include "componentes/logo.html" %}
-              </div>
-              <h3 class="text-lg font-bold text-foreground">Código QR Institucional</h3>
-              <p class="mt-2 text-sm text-muted-foreground leading-relaxed">
-                Un solo escaneo para registrar entrada o salida. Automático, seguro y auditado.
-              </p>
-              <div class="mt-5 flex items-center gap-3 rounded-xl bg-muted/40 p-3">
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/20">
-                  <svg class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                </div>
-                <div>
-                  <p class="text-xs font-semibold text-foreground">Puntualidad detectada</p>
-                  <p class="text-xs text-muted-foreground">Hoy 7:58 AM · Entrada registrada</p>
-                </div>
-              </div>
-              <div class="mt-3 flex items-center gap-3 rounded-xl bg-muted/40 p-3">
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/20">
-                  <svg class="h-5 w-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                </div>
-                <div>
-                  <p class="text-xs font-semibold text-foreground">Tardanza detectada</p>
-                  <p class="text-xs text-muted-foreground">Ayer 8:12 AM · 12 min de retraso</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        <p class="mt-3 text-sm text-gray-500 font-medium">Modelos</p>
+        <p class="mt-1 text-4xl font-extrabold text-indigo-500 tracking-tight">16</p>
       </div>
+
+      {# Card 2 #}
+      <div class="stat-card glass-card group rounded-2xl p-6 text-center">
+        <div class="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 transition group-hover:bg-indigo-100">
+          <svg class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z"/>
+          </svg>
+        </div>
+        <p class="mt-3 text-sm text-gray-500 font-medium">Módulos</p>
+        <p class="mt-1 text-4xl font-extrabold text-indigo-500 tracking-tight">14</p>
+      </div>
+
+      {# Card 3 #}
+      <div class="stat-card glass-card group rounded-2xl p-6 text-center">
+        <div class="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 transition group-hover:bg-indigo-100">
+          <svg class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
+          </svg>
+        </div>
+        <p class="mt-3 text-sm text-gray-500 font-medium">Reglas</p>
+        <p class="mt-1 text-4xl font-extrabold text-indigo-500 tracking-tight">9</p>
+      </div>
+
+      {# Card 4 #}
+      <div class="stat-card glass-card group rounded-2xl p-6 text-center">
+        <div class="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 transition group-hover:bg-indigo-100">
+          <svg class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
+          </svg>
+        </div>
+        <p class="mt-3 text-sm text-gray-500 font-medium">Pantallas</p>
+        <p class="mt-1 text-4xl font-extrabold text-indigo-500 tracking-tight">13</p>
+      </div>
+
     </div>
-  </section>
 
-  {# ── Estadísticas ───────────────────────────────────────── #}
-  <section class="py-12 px-4 sm:px-6 lg:px-8">
-    <div class="mx-auto max-w-4xl">
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div class="glass-card rounded-2xl p-5 text-center">
-          <div class="text-3xl font-bold text-primary">16</div>
-          <div class="mt-1 text-xs font-medium text-muted-foreground">Modelos de datos</div>
-        </div>
-        <div class="glass-card rounded-2xl p-5 text-center">
-          <div class="text-3xl font-bold text-emerald-500">14</div>
-          <div class="mt-1 text-xs font-medium text-muted-foreground">Módulos API</div>
-        </div>
-        <div class="glass-card rounded-2xl p-5 text-center">
-          <div class="text-3xl font-bold text-purple-500">9</div>
-          <div class="mt-1 text-xs font-medium text-muted-foreground">Reglas de negocio</div>
-        </div>
-        <div class="glass-card rounded-2xl p-5 text-center">
-          <div class="text-3xl font-bold text-amber-500">13</div>
-          <div class="mt-1 text-xs font-medium text-muted-foreground">Pantallas</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  {# ── Características ────────────────────────────────────── #}
-  <section id="caracteristicas" class="py-20 px-4 sm:px-6 lg:px-8">
-    <div class="mx-auto max-w-6xl">
-      <div class="text-center mb-14">
-        <h2 class="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Todo lo que necesitas</h2>
-        <p class="mt-3 text-muted-foreground max-w-xl mx-auto">
-          Control completo de asistencia docente en una sola plataforma
-        </p>
-      </div>
-
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {# Card 1 #}
-        <div class="glass-card rounded-2xl p-6 transition hover:shadow-elevated hover:-translate-y-1">
-          <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <svg class="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"/>
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"/>
-            </svg>
-          </div>
-          <h3 class="mt-4 text-base font-bold text-foreground">Código QR Institucional</h3>
-          <p class="mt-2 text-sm text-muted-foreground leading-relaxed">
-            Un solo QR para toda la institución. Descargable en PNG y SVG, colocado en el punto de acceso.
-          </p>
-        </div>
-
-        {# Card 2 #}
-        <div class="glass-card rounded-2xl p-6 transition hover:shadow-elevated hover:-translate-y-1">
-          <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10">
-            <svg class="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </div>
-          <h3 class="mt-4 text-base font-bold text-foreground">Detección Automática</h3>
-          <p class="mt-2 text-sm text-muted-foreground leading-relaxed">
-            Detecta tardanzas y puntualidad automáticamente según horarios y tolerancia configurable.
-          </p>
-        </div>
-
-        {# Card 3 #}
-        <div class="glass-card rounded-2xl p-6 transition hover:shadow-elevated hover:-translate-y-1">
-          <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10">
-            <svg class="h-6 w-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
-            </svg>
-          </div>
-          <h3 class="mt-4 text-base font-bold text-foreground">Reportes a Excel</h3>
-          <p class="mt-2 text-sm text-muted-foreground leading-relaxed">
-            Genera informes completos de asistencia y los exporta a Excel para análisis externo.
-          </p>
-        </div>
-
-        {# Card 4 #}
-        <div class="glass-card rounded-2xl p-6 transition hover:shadow-elevated hover:-translate-y-1">
-          <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
-            <svg class="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
-            </svg>
-          </div>
-          <h3 class="mt-4 text-base font-bold text-foreground">Seguridad JWT + RBAC</h3>
-          <p class="mt-2 text-sm text-muted-foreground leading-relaxed">
-            Token de acceso y refresco rotativo. bcrypt con 12 rondas. Permisos granulares por módulo.
-          </p>
-        </div>
-
-        {# Card 5 #}
-        <div class="glass-card rounded-2xl p-6 transition hover:shadow-elevated hover:-translate-y-1">
-          <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10">
-            <svg class="h-6 w-6 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
-            </svg>
-          </div>
-          <h3 class="mt-4 text-base font-bold text-foreground">Horarios y Jornadas</h3>
-          <p class="mt-2 text-sm text-muted-foreground leading-relaxed">
-            Gestión completa de horarios, jornadas y vinculación con docentes y cursos.
-          </p>
-        </div>
-
-        {# Card 6 #}
-        <div class="glass-card rounded-2xl p-6 transition hover:shadow-elevated hover:-translate-y-1">
-          <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
-            <svg class="h-6 w-6 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
-            </svg>
-          </div>
-          <h3 class="mt-4 text-base font-bold text-foreground">Auditoría Completa</h3>
-          <p class="mt-2 text-sm text-muted-foreground leading-relaxed">
-            Cada acción queda registrada con usuario, fecha, IP y dispositivo. Evidencia inmutable.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  {# ── Footer ─────────────────────────────────────────────── #}
-  <footer class="border-t border-border/50 py-8 px-4 sm:px-6 lg:px-8">
-    <div class="mx-auto max-w-6xl text-center">
-      <div class="flex items-center justify-center gap-2 mb-3">
-        <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/20">
-          <svg class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    {# ── Glass pill with 4 icons ── #}
+    <div class="anim-up-4 mx-auto mt-12 flex max-w-lg items-center justify-center gap-8 rounded-full glass-pill px-10 py-5">
+      {# QR #}
+      <div class="flex flex-col items-center gap-2">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100/80 transition hover:bg-indigo-50">
+          <svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
             <path stroke-linecap="round" stroke-linejoin="round"
                   d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"/>
           </svg>
         </div>
-        <span class="text-sm font-bold text-foreground">Asistencia QR</span>
+        <span class="text-[10px] font-medium text-gray-400 uppercase tracking-wider">QR</span>
       </div>
-      <p class="text-xs text-muted-foreground">
-        Sistema de Asistencia Docente por Código QR · v3.7.0
-      </p>
-      <p class="mt-1 text-xs text-muted-foreground/60">
-        Python + Flask · PostgreSQL · Tailwind CSS
-      </p>
+      {# Horarios #}
+      <div class="flex flex-col items-center gap-2">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100/80 transition hover:bg-indigo-50">
+          <svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <span class="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Horarios</span>
+      </div>
+      {# Reportes #}
+      <div class="flex flex-col items-center gap-2">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100/80 transition hover:bg-indigo-50">
+          <svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
+          </svg>
+        </div>
+        <span class="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Reportes</span>
+      </div>
+      {# Seguridad #}
+      <div class="flex flex-col items-center gap-2">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100/80 transition hover:bg-indigo-50">
+          <svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+          </svg>
+        </div>
+        <span class="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Seguridad</span>
+      </div>
     </div>
+
+  </div>
+
+  {# ── Footer ── #}
+  <footer class="mt-auto pt-16 pb-6 text-center">
+    <p class="text-xs text-gray-400 font-light">
+      Sistema de Asistencia Docente · v3.7.0
+    </p>
   </footer>
 
 </main>
