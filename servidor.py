@@ -25,6 +25,15 @@ for flujo in (sys.stdout, sys.stderr):
 
 app = crear_app()
 
+# Asegura que los docentes y sus usuarios existan en la base (idempotente).
+# Se ejecuta al arrancar para no depender de la fase de build de Render.
+try:
+    import seed_sincronizacion
+
+    seed_sincronizacion.ejecutar_seed()
+except Exception as error:  # noqa: BLE001
+    print(f"[arranque] No se pudo sincronizar el seed: {error}")
+
 
 def main() -> None:
     puerto = app.config["PUERTO"]

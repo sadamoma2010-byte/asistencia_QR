@@ -592,7 +592,7 @@ CONFIGURAR-BASE-DE-DATOS.bat  # genera .env con la URL de BD
 | 1 | **Configurar coordenadas del colegio** — Ejecutar `migracion_ubicacion_colegio.sql` y colocar lat/lng reales en `school.location_latitude` y `school.location_longitude` | Pendiente |
 | 2 | **Activar validación de ubicación** — Cambiar `school.location_required` a `"true"` una vez verificadas las coordenadas | Pendiente |
 | 3 | **Verificación humana del sistema** — Probar end-to-end con un docente real: registrar entrada/salida, verificar que la validación de ubicación funcione correctamente, revisar que las marcaciones se guarden con lat/lng | Pendiente |
-| 4 | **Crear cuentas de usuario para los docentes importados** — Los 41 docentes están en la tabla `docentes` con código `DOC-0001` a `DOC-0041` pero no tienen cuenta de usuario para marcarse | Pendiente |
+| 4 | **Crear cuentas de usuario para los docentes importados** — Hecho: 41 docentes tienen usuario (rol `DOCENTE`, clave = documento, debe cambiar contraseña). Se sincroniza a Render vía `seed_sincronizacion.py` al arranque | Completado |
 | 5 | **Probar en dispositivo móvil** — Verificar que la geolocalización funcione en Android/iOS (permisos de ubicación, precisión GPS) | Pendiente |
 | 6 | **Documentar en el README** — Agregar instrucciones de configuración de ubicación del colegio | Pendiente |
 
@@ -603,3 +603,5 @@ CONFIGURAR-BASE-DE-DATOS.bat  # genera .env con la URL de BD
 - El radio por defecto es 200 metros — puede ajustarse en `school.location_radius_meters`
 - Las páginas `/marcar` y `/escanear` muestran el estado de ubicación (dentro/fuera) en tiempo real
 - **Importación de docentes (v3.7.0)**: Se importaron 41 docentes desde `BASE DE DATOS DOCENTES Y DIRECTIVOS IED LOS LAURELES 2026.xlsx` a la tabla `docentes` (esquema local activo, columnas en español). Script: `importar_docentes.py`. Coincidencia por número de documento.
+- **Cuentas de usuario (v3.7.0)**: Cada docente tiene un usuario con rol `DOCENTE`, clave inicial = número de documento, `must_change_password = true`. Script: `crear_usuarios_docentes.py` (local, español).
+- **Seed para Render (v3.7.0)**: Los 41 docentes se sincronizan en el esquema inglés (`teachers` + `users`) de forma idempotente vía `seed_sincronizacion.py` + `seed_docentes.json`. Se ejecuta **al arrancar** la app (`servidor.py`) y en el build (`init_db.py`), con autocommit por fila e inserción adaptada a las columnas existentes. Regenerar el JSON: `generar_seed_json.py`.

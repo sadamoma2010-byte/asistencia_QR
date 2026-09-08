@@ -98,15 +98,20 @@ def _run_migrations(cur):
         print("Configuración de ubicación del colegio ya existe, migracion_ubicacion_colegio.sql saltando")
 
 def _run_seed(cur):
-    """Carga los docentes y sus usuarios cuando las tablas ya existen."""
+    """Sincroniza los docentes y sus usuarios en la base existente."""
     if not _existe_tabla(cur, "users") or not _existe_tabla(cur, "teachers"):
-        print("seed_docentes_render.sql saltado: no existen tablas users/teachers")
+        print("seed saltado: no existen tablas users/teachers")
         return
-    if not _existe_tabla(cur, "roles"):
-        print("seed_docentes_render.sql saltado: no existe la tabla roles")
-        return
-    _ejecutar_archivo(cur, Path(__file__).parent / "seed_docentes_render.sql",
-                      "seed_docentes_render.sql")
+    try:
+        import importlib.util
+
+        ruta = Path(__file__).parent / "seed_sincronizacion.py"
+        spec = importlib.util.spec_from_file_location("seed_sincronizacion", ruta)
+        modulo = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(modulo)
+        modulo.ejecutar_seed()
+    except Exception as e:
+        print(f"Error ejecutando el seed: {e}")
 
 
 if __name__ == "__main__":
