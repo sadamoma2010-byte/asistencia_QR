@@ -282,6 +282,10 @@ CREATE TABLE "attendances" (
     "registered_at" TIMESTAMPTZ(3) NOT NULL,
     "expected_time" VARCHAR(5),
     "minutes_diff" SMALLINT NOT NULL DEFAULT 0,
+    "latitude" DOUBLE PRECISION,
+    "longitude" DOUBLE PRECISION,
+    "location_accuracy" DOUBLE PRECISION,
+    "location_source" VARCHAR(30),
     "ip_address" VARCHAR(60),
     "user_agent" VARCHAR(400),
     "device" VARCHAR(120),
@@ -872,6 +876,13 @@ INSERT INTO "settings" ("id", "key", "value", "type", "group", "label", "descrip
   (gen_random_uuid(), 'attendance.window_minutes', '180', 'NUMBER'::"setting_type", 'attendance', 'Ventana de marcación (minutos)', 'Margen máximo respecto a la hora del horario para aceptar una marcación.', FALSE, FALSE, NOW(), NOW()),
   (gen_random_uuid(), 'app.timezone', 'America/Bogota', 'STRING'::"setting_type", 'general', 'Zona horaria institucional', 'Determina el cálculo de puntualidad y el corte de día.', TRUE, TRUE, NOW(), NOW()),
   (gen_random_uuid(), 'app.institution_short_name', 'Asistencia Docente', 'STRING'::"setting_type", 'general', 'Nombre corto institucional', 'Se muestra en la cabecera de la aplicación.', TRUE, FALSE, NOW(), NOW());
+
+-- ── Ubicación del colegio (validación geográfica de marcaciones) ──
+INSERT INTO "settings" ("id", "key", "value", "type", "group", "label", "description", "is_public", "is_system", "created_at", "updated_at") VALUES
+  (gen_random_uuid(), 'school.location_latitude', '', 'STRING'::"setting_type", 'school', 'Latitud del colegio', 'Latitud en grados decimales, por ejemplo 4.6097.', FALSE, FALSE, NOW(), NOW()),
+  (gen_random_uuid(), 'school.location_longitude', '', 'STRING'::"setting_type", 'school', 'Longitud del colegio', 'Longitud en grados decimales, por ejemplo -74.0817.', FALSE, FALSE, NOW(), NOW()),
+  (gen_random_uuid(), 'school.location_radius_meters', '200', 'NUMBER'::"setting_type", 'school', 'Radio de marcación (metros)', 'Radio máximo permitido desde el punto del colegio para registrar asistencia.', FALSE, FALSE, NOW(), NOW()),
+  (gen_random_uuid(), 'school.location_required', 'false', 'STRING'::"setting_type", 'school', 'Obligar a marcar dentro del colegio', 'Si es true, el docente debe estar dentro del radio para registrar asistencia.', FALSE, FALSE, NOW(), NOW());
 
 -- ── Jornadas ──
 INSERT INTO "shifts" ("id", "name", "description", "status", "created_at", "updated_at") VALUES

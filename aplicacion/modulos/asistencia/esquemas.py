@@ -14,6 +14,12 @@ class RegistrarMarcacion(BaseModel):
     teacherId: str | None = None
     notes: str | None = Field(default=None, max_length=400)
 
+    # Geolocalización del docente
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    locationAccuracy: float | None = Field(default=None, ge=0)
+    locationSource: str | None = Field(default=None, max_length=30)
+
 
 class BorrarSeleccionadas(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)

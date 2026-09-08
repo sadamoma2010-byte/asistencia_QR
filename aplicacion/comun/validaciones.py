@@ -79,3 +79,81 @@ def exigir_identificador(valor: str) -> str:
     if not PATRON_UUID.match(valor or ""):
         raise SolicitudInvalida("El identificador indicado no es válido")
     return valor
+
+
+# ── Geolocalización ────────────────────────────────────────────────
+
+import math
+
+
+def distancia_haversine(
+    lat1: float, lon1: float, lat2: float, lon2: float
+) -> float:
+    """
+    Distancia en metros entre dos puntos GPS usando la fórmula de Haversine.
+
+    https://en.wikipedia.org/wiki/Haversine_formula
+    """
+    radio_tierra = 6_371_000  # metros
+
+    lat1_r = math.radians(lat1)
+    lat2_r = math.radians(lat2)
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1_r) * math.cos(lat2_r) * math.sin(dlon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    return radio_tierra * c
+
+
+def validar_ubicacion_colegio(
+    latitud: float | None,
+    longitud: float | None,
+    school_lat: float | None,
+    school_lng: float | None,
+    radio_metros: int = 200,
+) -> dict:
+    """
+    Valida si las coordenadas del docente están dentro del rango permitido del colegio.
+
+    Devuelve:
+        {
+            "dentro": bool,
+            "distancia_metros": float | None,
+            "mensaje": str
+        }
+    """
+    if latitud is None or longitud is None:
+        return {
+            "dentro": False,
+            "distancia_metros": None,
+            "mensaje": "No se pudo obtener la ubicación del dispositivo",
+        }
+
+    if school_lat is None or school_lng is None:
+        return {
+            "dentro": True,
+            "distancia_metros": None,
+            "mensaje": "La ubicación del colegio no está configurada",
+        }
+
+    distancia = distancia_haversine(latitud, longitud, school_lat, school_lng)
+    dentro = distancia <= radio_metros
+
+    if dentro:
+        mensaje = f"Ubicación válida ({distancia:.0f}m del colegio)"
+    else:
+        mensaje = (
+            f"Fuera del rango permitido: {distancia:.0f}m del colegio "
+            f"(máximo {radio_metros}m)"
+        )
+
+    return {
+        "dentro": dentro,
+        "distancia_metros": round(distancia, 1),
+        "mensaje": mensaje,
+    }

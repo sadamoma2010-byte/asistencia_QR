@@ -51,6 +51,12 @@ class Marcacion(bd.Model, MarcasTiempo, BorradoLogico):
     # Minutos de diferencia: positivo llegó tarde, negativo se anticipó
     minutes_diff: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
 
+    # Geolocalización del docente al momento de registrar
+    latitude: Mapped[float | None] = mapped_column()
+    longitude: Mapped[float | None] = mapped_column()
+    location_accuracy: Mapped[float | None] = mapped_column()  # metros
+    location_source: Mapped[str | None] = mapped_column(String(30))  # gps, network, user
+
     ip_address: Mapped[str | None] = mapped_column(String(60))
     user_agent: Mapped[str | None] = mapped_column(String(400))
     device: Mapped[str | None] = mapped_column(String(120))

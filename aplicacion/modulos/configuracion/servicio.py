@@ -29,6 +29,10 @@ CLAVES = {
     "VENTANA": "attendance.window_minutes",
     "ZONA_HORARIA": "app.timezone",
     "NOMBRE_CORTO": "app.institution_short_name",
+    "UBICACION_LAT": "school.location_latitude",
+    "UBICACION_LNG": "school.location_longitude",
+    "UBICACION_RADIO": "school.location_radius_meters",
+    "UBICACION_OBLIGATORIA": "school.location_required",
 }
 
 
@@ -222,3 +226,22 @@ def historial_qr() -> list[dict]:
         }
         for f in filas
     ]
+
+
+# ── Ubicación del colegio ──────────────────────────────────────────
+
+
+def ubicacion_colegio() -> dict:
+    """Devuelve la configuración de ubicación geográfica del colegio."""
+    lat = texto(CLAVES["UBICACION_LAT"], "")
+    lng = texto(CLAVES["UBICACION_LNG"], "")
+    radio = numero(CLAVES["UBICACION_RADIO"], 200)
+    obligatoria = texto(CLAVES["UBICACION_OBLIGATORIA"], "false").lower() == "true"
+
+    return {
+        "latitude": float(lat) if lat else None,
+        "longitude": float(lng) if lng else None,
+        "radiusMeters": radio,
+        "required": obligatoria,
+        "configured": bool(lat and lng),
+    }

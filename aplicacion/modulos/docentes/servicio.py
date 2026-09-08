@@ -14,6 +14,8 @@ from flask import request
 from sqlalchemy import delete, func, select
 from werkzeug.datastructures import FileStorage
 
+from flask import current_app
+
 from ...comun import auditoria, codigos, subidas
 from ...comun.consultas import Paginacion
 from ...comun.crud import ServicioCRUD
@@ -537,7 +539,8 @@ class ServicioDocentes(ServicioCRUD):
         muestre la anterior tras un cambio: sin ella, la imagen queda en la
         caché y parece que la subida no hizo nada.
         """
-        return f"/api/v1/teachers/{identificador}/photo?v={int(time.time())}"
+        prefijo = current_app.config["PREFIJO_API"]
+        return f"{prefijo}/teachers/{identificador}/photo?v={int(time.time())}"
 
     @classmethod
     def subir_foto(

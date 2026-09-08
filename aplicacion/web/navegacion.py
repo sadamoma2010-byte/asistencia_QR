@@ -80,6 +80,7 @@ ESTRUCTURA = (
         (
             ("/dashboard", "Dashboard", "panel", "dashboard.read"),
             ("/asistencia", "Asistencia", "asistencia", "attendance.read"),
+            ("/escanear", "Escanear QR", "qr", "attendance.self"),
             ("/reportes", "Reportes", "reportes", "reports.read"),
             ("/qr", "Código QR", "qr", "settings.read"),
         ),

@@ -24,7 +24,11 @@ def registrar():
     datos = RegistrarMarcacion.model_validate(request.get_json(silent=True) or {})
     return responder(
         servicio.registrar(
-            datos.type, datos.teacherId, datos.notes, exigir_usuario(), contexto()
+            datos.type, datos.teacherId, datos.notes, exigir_usuario(), contexto(),
+            latitude=datos.latitude,
+            longitude=datos.longitude,
+            location_accuracy=datos.locationAccuracy,
+            location_source=datos.locationSource,
         ),
         201,
     )

@@ -25,7 +25,7 @@ from ...comun.errores import Conflicto, NoEncontrado, Prohibido, SolicitudInvali
 from ...comun.peticion import ContextoPeticion
 from ...comun.respuestas import resultado_paginado
 from ...comun.seguridad import UsuarioAutenticado
-from ...comun.validaciones import exigir_identificador
+from ...comun.validaciones import exigir_identificador, validar_ubicacion_colegio
 from ...comun.tiempo import (
     DIAS,
     ahora,
@@ -83,6 +83,10 @@ def registrar(
     notas: str | None,
     actor: UsuarioAutenticado,
     ctx: ContextoPeticion,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    location_accuracy: float | None = None,
+    location_source: str | None = None,
 ) -> dict:
     """Registra una entrada o salida aplicando las reglas RN001 a RN009."""
     momento = ahora()
@@ -109,6 +113,23 @@ def registrar(
     # RN003 — el docente debe tener un horario aplicable
     horario = _resolver_horario(docente_id, momento, tipo, zona)
 
+    # ── Validación de ubicación geográfica ──
+    ubicacion = configuracion.ubicacion_colegio()
+    if ubicacion["required"] and ubicacion["configured"]:
+        geo = validar_ubicacion_colegio(
+            latitud=latitude,
+            longitud=longitude,
+            school_lat=ubicacion["latitude"],
+            school_lng=ubicacion["longitude"],
+            radio_metros=ubicacion["radiusMeters"],
+        )
+        if not geo["dentro"]:
+            raise Prohibido(
+                f"Ubicación fuera del rango permitido. "
+                f"Distancia: {geo['distancia_metros']:.0f}m — "
+                f"Máximo permitido: {ubicacion['radiusMeters']}m"
+            )
+
     # RN004 / RN005 / RN006 — secuencia válida de marcaciones
     fecha = clave_fecha(momento, zona)
     _validar_secuencia(docente_id, tipo, fecha)
@@ -128,6 +149,10 @@ def registrar(
         registered_at=momento,
         expected_time=hora_esperada,
         minutes_diff=diferencia,
+        latitude=latitude,
+        longitude=longitude,
+        location_accuracy=location_accuracy,
+        location_source=location_source,
         ip_address=ctx.ip,
         user_agent=ctx.agente,
         device=ctx.dispositivo,
@@ -160,9 +185,26 @@ def registrar(
     )
     bd.session.commit()
 
+    ubicacion_info = None
+    if ubicacion["configured"]:
+        geo_check = validar_ubicacion_colegio(
+            latitud=latitude,
+            longitud=longitude,
+            school_lat=ubicacion["latitude"],
+            school_lng=ubicacion["longitude"],
+            radio_metros=ubicacion["radiusMeters"],
+        )
+        ubicacion_info = {
+            "withinSchool": geo_check["dentro"],
+            "distanceMeters": geo_check["distancia_metros"],
+            "schoolRadius": ubicacion["radiusMeters"],
+            "message": geo_check["mensaje"],
+        }
+
     return {
         **serializar(marcacion),
         "message": _mensaje(tipo, estado, diferencia),
+        "locationValidation": ubicacion_info,
     }
 
 
@@ -325,6 +367,10 @@ def serializar(fila: Marcacion) -> dict:
         "registeredAt": iso(fila.registered_at),
         "expectedTime": fila.expected_time,
         "minutesDiff": fila.minutes_diff,
+        "latitude": fila.latitude,
+        "longitude": fila.longitude,
+        "locationAccuracy": fila.location_accuracy,
+        "locationSource": fila.location_source,
         "ipAddress": fila.ip_address,
         "userAgent": fila.user_agent,
         "device": fila.device,

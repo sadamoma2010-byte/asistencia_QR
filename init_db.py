@@ -8,6 +8,41 @@ import sys
 import psycopg2
 from pathlib import Path
 
+def _ejecutar_archivo(cur, ruta: Path, descripcion: str) -> bool:
+    """Ejecuta un archivo SQL si existe. Devuelve True si se aplicó."""
+    if not ruta.exists():
+        print(f"{descripcion} no encontrado, saltando")
+        return False
+    cur.execute(ruta.read_text())
+    print(f"{descripcion} aplicado correctamente")
+    return True
+
+def _existe_tabla(cur, nombre: str) -> bool:
+    cur.execute(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema='public' AND table_name=%s",
+        (nombre,),
+    )
+    return cur.fetchone()[0] > 0
+
+def _existe_columna(cur, tabla: str, columna: str) -> bool:
+    cur.execute(
+        "SELECT COUNT(*) FROM information_schema.columns "
+        "WHERE table_schema='public' AND table_name=%s AND column_name=%s",
+        (tabla, columna),
+    )
+    return cur.fetchone()[0] > 0
+
+def _existe_setting(cur, clave: str) -> bool:
+    cur.execute(
+        "SELECT COUNT(*) FROM information_schema.tables "
+        "WHERE table_schema='public' AND table_name='settings'"
+    )
+    if cur.fetchone()[0] == 0:
+        return True  # no hay tabla settings: no hay nada que migrar
+    cur.execute("SELECT COUNT(*) FROM settings WHERE key = %s", (clave,))
+    return cur.fetchone()[0] > 0
+
 def init_database():
     db_url = os.environ.get("DATABASE_URL", "")
     if not db_url:
@@ -24,23 +59,55 @@ def init_database():
         conn.autocommit = True
         cur = conn.cursor()
 
-        cur.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'")
+        tables = cur.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'"
+        )
         count = cur.fetchone()[0]
 
         if count > 0:
             print(f"Base de datos ya tiene {count} tablas, saltando init")
+            _run_migrations(cur)
+            _run_seed(cur)
             cur.close()
             conn.close()
             return
 
         print("Inicializando base de datos...")
-        cur.execute(sql_file.read_text())
-        print("Base de datos inicializada correctamente")
-
+        _ejecutar_archivo(cur, sql_file, "Base de datos")
+        _run_seed(cur)
         cur.close()
         conn.close()
     except Exception as e:
         print(f"Error inicializando BD: {e}")
+
+def _run_migrations(cur):
+    """Ejecuta migraciones incrementales sobre la base existente."""
+    base = Path(__file__).parent
+
+    # Geolocalización de marcaciones (columnas en attendances)
+    if _existe_tabla(cur, "attendances") and not _existe_columna(cur, "attendances", "latitude"):
+        _ejecutar_archivo(cur, base / "migracion_geo.sql", "migracion_geo.sql")
+    else:
+        print("Columnas de geolocalización ya existen, migracion_geo.sql saltando")
+
+    # Configuración de ubicación del colegio (settings)
+    if _existe_tabla(cur, "settings") and not _existe_setting(cur, "school.location_latitude"):
+        _ejecutar_archivo(cur, base / "migracion_ubicacion_colegio.sql",
+                          "migracion_ubicacion_colegio.sql")
+    else:
+        print("Configuración de ubicación del colegio ya existe, migracion_ubicacion_colegio.sql saltando")
+
+def _run_seed(cur):
+    """Carga los docentes y sus usuarios cuando las tablas ya existen."""
+    if not _existe_tabla(cur, "users") or not _existe_tabla(cur, "teachers"):
+        print("seed_docentes_render.sql saltado: no existen tablas users/teachers")
+        return
+    if not _existe_tabla(cur, "roles"):
+        print("seed_docentes_render.sql saltado: no existe la tabla roles")
+        return
+    _ejecutar_archivo(cur, Path(__file__).parent / "seed_docentes_render.sql",
+                      "seed_docentes_render.sql")
+
 
 if __name__ == "__main__":
     init_database()

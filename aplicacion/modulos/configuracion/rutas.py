@@ -32,6 +32,12 @@ def publicos():
     return responder(servicio.publicos())
 
 
+@bp.get("/settings/location")
+def ubicacion_colegio():
+    """Ubicación del colegio — accesible sin sesión para las páginas de asistencia."""
+    return responder(servicio.ubicacion_colegio())
+
+
 @bp.get("/settings")
 @requiere_permisos("settings.read")
 def listar():

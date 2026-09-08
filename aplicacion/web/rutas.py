@@ -196,3 +196,14 @@ def marcar():
     usuario = usuario_actual()
     estado = asistencia.estado_propio(usuario) if usuario.docente_id else None
     return render_template("marcar.html", estado=estado, **_contexto("Marcar asistencia"))
+
+
+@bp.get("/escanear")
+@con_sesion()
+def escanear():
+    """Página de escaneo QR con geolocalización para docentes."""
+    from ..modulos.asistencia import servicio as asistencia
+
+    usuario = usuario_actual()
+    estado = asistencia.estado_propio(usuario) if usuario.docente_id else None
+    return render_template("escanear.html", estado=estado, **_contexto("Escanear QR"))

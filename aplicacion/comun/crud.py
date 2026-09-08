@@ -257,7 +257,9 @@ class ServicioCRUD:
         """
         marca = int(time.time() * 1000)
         if hasattr(fila, "name"):
-            fila.name = f"{fila.name} (eliminada {marca})"[:80]
+            sufijo = f" (elim. {marca})"
+            espacio = 80 - len(sufijo)
+            fila.name = fila.name[:max(espacio, 1)] + sufijo
 
     @classmethod
     def gancho_antes_de_crear(cls, datos: dict) -> None:

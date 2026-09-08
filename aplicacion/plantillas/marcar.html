@@ -41,6 +41,18 @@
           </div>
         </div>
 
+        {# ── Estado de ubicación ────────────────────────────────── #}
+        <div id="ubicacion-estado" class="mt-4 rounded-xl border border-border bg-card p-3 text-center hidden">
+          <div id="ubicacion-icono" class="mx-auto mb-1 hidden">
+            <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M8 12l3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <p id="ubicacion-mensaje" class="text-sm text-muted-foreground"></p>
+          <p id="ubicacion-distancia" class="text-xs text-muted-foreground mt-0.5"></p>
+        </div>
+
         {# ── Horarios de hoy ─────────────────────────────────────── #}
         {% if estado.schedules %}
         <div class="mt-5">
@@ -159,13 +171,90 @@
     });
   });
 
+  // ═══════ Geolocalización ═══════
+  let posicionActual = null;
+
+  function distanciaHaversine(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = (x) => x * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function mostrarUbicacion(pos, config) {
+    const contenedor = document.getElementById('ubicacion-estado');
+    const icono = document.getElementById('ubicacion-icono');
+    const msg = document.getElementById('ubicacion-mensaje');
+    const dist = document.getElementById('ubicacion-distancia');
+
+    if (!config || !config.configured || !config.latitude || !config.longitude) {
+      contenedor.classList.add('hidden');
+      return;
+    }
+
+    const metros = distanciaHaversine(
+      pos.coords.latitude, pos.coords.longitude,
+      config.latitude, config.longitude
+    );
+    const dentro = metros <= config.radiusMeters;
+
+    contenedor.classList.remove('hidden');
+    if (dentro) {
+      contenedor.className = contenedor.className.replace(/border-(red|green)-500/g, '');
+      contenedor.classList.add('border-emerald-500/40', 'bg-emerald-500/5');
+      icono.className = 'mx-auto mb-1 text-emerald-500';
+      msg.textContent = 'Dentro del colegio';
+      msg.className = 'text-sm font-medium text-emerald-700';
+    } else {
+      contenedor.classList.add('border-red-500/40', 'bg-red-500/5');
+      icono.className = 'mx-auto mb-1 text-red-500';
+      msg.textContent = 'Fuera del rango del colegio';
+      msg.className = 'text-sm font-medium text-red-700';
+    }
+    dist.textContent = `Distancia: ${Math.round(metros)}m (máx: ${config.radiusMeters}m)`;
+  }
+
+  if ('geolocation' in navigator) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        posicionActual = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          source: pos.coords.altitude !== null ? 'gps' : 'network',
+        };
+        // Consultar configuración de ubicación del colegio
+        fetch('/api/v1/settings/location')
+          .then(r => r.ok ? r.json() : null)
+          .then(cfg => {
+            if (cfg && cfg.data) mostrarUbicacion(pos, cfg.data);
+          })
+          .catch(() => {});
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  }
+
+  // ═══════ Registro con geolocalización ═══════
   document.querySelectorAll('[data-marcar]').forEach((boton) =>
     boton.addEventListener('click', async () => {
       const tipo = boton.dataset.marcar;
       document.querySelectorAll('[data-marcar]').forEach((b) => (b.disabled = true));
 
+      const payload = { type: tipo };
+      if (posicionActual) {
+        payload.latitude = posicionActual.latitude;
+        payload.longitude = posicionActual.longitude;
+        payload.locationAccuracy = posicionActual.accuracy;
+        payload.locationSource = posicionActual.source;
+      }
+
       try {
-        const resultado = await Api.post('/attendance/register', { type: tipo });
+        const resultado = await Api.post('/attendance/register', payload);
         Interfaz.aviso(resultado.message, 'exito', 6000);
         setTimeout(() => location.reload(), 1200);
       } catch (error) {
