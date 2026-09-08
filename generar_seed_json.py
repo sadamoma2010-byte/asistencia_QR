@@ -30,6 +30,7 @@ for codigo, nombre, apellido, documento, correo, telefono, u_id, u_correo, hash_
     email = (correo or u_correo or "") or None
     if not email:
         email = f"{documento}@pendiente.local"
+    email = email.strip().lower()
     entradas.append(
         {
             "usuario_id": str(u_id),

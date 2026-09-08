@@ -126,11 +126,25 @@ def _ejecutar_seed(cur) -> dict:
         except Exception as e:  # noqa: BLE001
             errores.append(f"{d['code']}: {e}")
 
+    _normalizar_correos(cur, col_usuarios, col_docentes)
+
     return {
         "usuarios_creados": creados_u,
         "docentes_creados": creados_d,
         "errores": errores,
     }
+
+
+def _normalizar_correos(cur, col_usuarios, col_docentes) -> None:
+    """Guarda los correos en minúsculas (el login los baja a minúsculas).
+
+    Autocura registros previos guardados con mayúsculas, que de otro modo
+    nunca coinciden en la comparación de PostgreSQL.
+    """
+    if "email" in col_usuarios:
+        cur.execute("UPDATE users SET email = lower(email) WHERE email <> lower(email)")
+    if "email" in col_docentes:
+        cur.execute("UPDATE teachers SET email = lower(email) WHERE email <> lower(email)")
 
 
 def ejecutar_seed(verbose: bool = True) -> dict:
