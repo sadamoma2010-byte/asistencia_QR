@@ -33,6 +33,7 @@ CLAVES = {
     "UBICACION_LNG": "school.location_longitude",
     "UBICACION_RADIO": "school.location_radius_meters",
     "UBICACION_OBLIGATORIA": "school.location_required",
+    "UBICACION_PERMANENTE": "school.location_permanent",
 }
 
 
@@ -237,11 +238,13 @@ def ubicacion_colegio() -> dict:
     lng = texto(CLAVES["UBICACION_LNG"], "")
     radio = numero(CLAVES["UBICACION_RADIO"], 200)
     obligatoria = texto(CLAVES["UBICACION_OBLIGATORIA"], "false").lower() == "true"
+    permanente = texto(CLAVES["UBICACION_PERMANENTE"], "false").lower() == "true"
 
     return {
         "latitude": float(lat) if lat else None,
         "longitude": float(lng) if lng else None,
         "radiusMeters": radio,
         "required": obligatoria,
+        "permanent": permanente,
         "configured": bool(lat and lng),
     }

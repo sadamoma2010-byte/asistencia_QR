@@ -97,6 +97,16 @@ def _run_migrations(cur):
     else:
         print("Configuración de ubicación del colegio ya existe, migracion_ubicacion_colegio.sql saltando")
 
+    # Ubicación de la IED Los Laureles (solo si la latitud sigue vacía)
+    if _existe_tabla(cur, "settings"):
+        _ejecutar_archivo(cur, base / "migracion_ubicacion_ied.sql",
+                          "migracion_ubicacion_ied.sql")
+
+    # Permisos mínimos del rol DOCENTE (idempotente)
+    if _existe_tabla(cur, "role_permissions") and _existe_tabla(cur, "roles"):
+        _ejecutar_archivo(cur, base / "migracion_permisos_docente.sql",
+                          "migracion_permisos_docente.sql")
+
 def _run_seed(cur):
     """Sincroniza los docentes y sus usuarios en la base existente."""
     if not _existe_tabla(cur, "users") or not _existe_tabla(cur, "teachers"):

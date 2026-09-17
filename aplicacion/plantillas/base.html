@@ -1,17 +1,17 @@
 {# Estructura común de todas las pantallas.
 
    Reproduce el envoltorio que montaba el layout de Next.js: fondo con
-   degradado institucional, orbes desenfocados en azul, verde y violeta, y un
+   degradado institucional y orbes desenfocados en tonos verdes, y un
    contenedor que nunca desborda en horizontal. #}
 <!doctype html>
 <html lang="es" class="h-full">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#4F46E5">
+  <meta name="theme-color" content="#16A34A">
   <title>{% block titulo %}Sistema de Asistencia Docente{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
-  <link rel="icon" href="{{ url_for('static', filename='img/icono.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ url_for('static', filename='img/logo-ied.png') }}" type="image/png">
 </head>
 <body class="min-h-full font-sans">
 

@@ -22,8 +22,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 243 75% 59%; /* #4F46E5 */
-    --primary-hover: 245 58% 51%; /* #4338CA */
+    --primary: 142 71% 45%; /* #16A34A — verde institucional */
+    --primary-hover: 142 71% 29%; /* #15803D */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 215 19% 35%; /* #64748B */
@@ -42,11 +42,11 @@
     --muted-foreground: 215 16% 47%;
 
     --accent: 226 100% 97%;
-    --accent-foreground: 243 75% 45%;
+    --accent-foreground: 142 72% 38%;
 
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 243 75% 59%;
+    --ring: 142 71% 45%;
 
     --radius: 0.75rem;
   }
@@ -65,8 +65,8 @@
     --popover: 222 44% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 243 75% 66%;
-    --primary-hover: 243 75% 72%;
+    --primary: 142 71% 55%;
+    --primary-hover: 142 71% 62%;
     --primary-foreground: 222 47% 9%;
 
     --secondary: 215 20% 65%;
@@ -89,7 +89,7 @@
 
     --border: 217 33% 20%;
     --input: 217 33% 22%;
-    --ring: 243 75% 66%;
+    --ring: 142 71% 55%;
   }
 
   * {
@@ -144,11 +144,11 @@
 @layer components {
   /* ── Fondo institucional con gradiente y orbes ────────── */
   .app-gradient {
-    background-image: linear-gradient(135deg, #eef2ff, #f0fdf4, #dbeafe);
+    background-image: linear-gradient(135deg, #ecfdf5, #f0fdf4, #dcfce7);
   }
 
   .dark .app-gradient {
-    background-image: linear-gradient(135deg, #0b1120, #0f172a, #111c34);
+    background-image: linear-gradient(135deg, #0d1f16, #10241a, #143226);
   }
 
   .orb {
@@ -161,7 +161,7 @@
   }
 
   .orb-blue {
-    background: radial-gradient(circle at 30% 30%, #60a5fa, #3b82f6 55%, transparent 72%);
+    background: radial-gradient(circle at 30% 30%, #a7f3d0, #34d399 55%, transparent 72%);
   }
 
   .orb-green {
@@ -169,7 +169,27 @@
   }
 
   .orb-violet {
-    background: radial-gradient(circle at 30% 30%, #a5b4fc, #4f46e5 55%, transparent 72%);
+    background: radial-gradient(circle at 30% 30%, #bbf7d0, #22c55e 55%, transparent 72%);
+  }
+
+  /* ── Anillos de progreso (dashboard) ──────────────────── */
+  .donut {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: var(--donut, hsl(var(--muted)));
+  }
+
+  .donut-hueco {
+    display: flex;
+    width: 62%;
+    height: 62%;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: hsl(var(--card));
   }
 
   /* ── Glassmorphism moderado ───────────────────────────── */
@@ -191,7 +211,7 @@
   }
 
   .gradient-text {
-    @apply bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-500 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-green-700 via-emerald-600 to-green-500 bg-clip-text text-transparent;
   }
 
   /* Contenedor de tablas anchas: el scroll vive aquí, nunca en el body */

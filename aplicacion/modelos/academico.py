@@ -38,7 +38,7 @@ class Asignatura(bd.Model, MarcasTiempo, BorradoLogico, ConEstado):
     weekly_hours: Mapped[int | None] = mapped_column(SmallInteger)
 
     # Color hexadecimal de identificación en la interfaz
-    color: Mapped[str | None] = mapped_column(String(7), default="#4F46E5")
+    color: Mapped[str | None] = mapped_column(String(7), default="#16A34A")
 
     docentes: Mapped[list["DocenteAsignatura"]] = relationship(
         back_populates="asignatura", cascade="all, delete-orphan"

@@ -107,7 +107,7 @@
 
       case 'asignatura':
         return `<div class="flex items-center gap-2">
-            <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background:${esc(fila.color || '#4F46E5')}"></span>
+            <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background:${esc(fila.color || '#16A34A')}"></span>
             <div class="min-w-0">
               <p class="truncate font-medium text-foreground">${esc(fila.name)}</p>
               <p class="truncate text-xs text-muted-foreground">${esc(fila.code)}</p>
@@ -117,7 +117,7 @@
       case 'asignatura_anidada':
         return fila.subject
           ? `<span class="inline-flex items-center gap-1.5 text-foreground">
-               <span class="h-2 w-2 rounded-full" style="background:${esc(fila.subject.color || '#4F46E5')}"></span>
+               <span class="h-2 w-2 rounded-full" style="background:${esc(fila.subject.color || '#16A34A')}"></span>
                ${esc(fila.subject.name)}</span>`
           : '<span class="text-muted-foreground">—</span>';
 
@@ -128,7 +128,7 @@
           .map(
             (a) =>
               `<span class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs">
-                 <span class="h-1.5 w-1.5 rounded-full" style="background:${esc(a.color || '#4F46E5')}"></span>
+                 <span class="h-1.5 w-1.5 rounded-full" style="background:${esc(a.color || '#16A34A')}"></span>
                  ${esc(a.name)}</span>`,
           )
           .join('')}</div>`;
@@ -294,7 +294,7 @@
   }
 
   function botonesFila(fila) {
-    if (!vista.puede.editar && !vista.puede.eliminar && !vista.puede.reiniciar_clave) return '';
+    if (!vista.puede.editar && !vista.puede.activar && !vista.puede.reiniciar_clave) return '';
 
     const activo = fila.status === 'ACTIVE';
     const neutro = 'text-muted-foreground hover:bg-muted hover:text-foreground';
@@ -314,11 +314,6 @@
           fila.id,
           activo ? neutro : 'text-emerald-600 hover:bg-success/10',
         ),
-      );
-    }
-    if (vista.puede.eliminar) {
-      partes.push(
-        iconoAccion('eliminar', 'Eliminar', fila.id, 'text-destructive hover:bg-destructive/10'),
       );
     }
 

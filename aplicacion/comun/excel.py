@@ -22,7 +22,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from .tiempo import formato_fecha_hora
 
 # Misma paleta que el sistema anterior. openpyxl usa RGB sin canal alfa.
-PRIMARIO = "4F46E5"
+PRIMARIO = "16A34A"
 TEXTO_CABECERA = "FFFFFF"
 FRANJA = "F8FAFC"
 BORDE = "E2E8F0"

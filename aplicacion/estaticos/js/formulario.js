@@ -80,9 +80,9 @@ const Formulario = (() => {
 
       case 'color':
         return `<div class="flex items-center gap-2">
-            <input type="color" name="${campo}" value="${esc(v || '#4F46E5')}"
+            <input type="color" name="${campo}" value="${esc(v || '#16A34A')}"
                    class="h-11 w-14 cursor-pointer rounded-lg border border-input bg-card p-1">
-            <input type="text" data-espejo="${campo}" value="${esc(v || '#4F46E5')}"
+            <input type="text" data-espejo="${campo}" value="${esc(v || '#16A34A')}"
                    class="${CLASE_CAMPO}">
           </div>`;
 
@@ -131,6 +131,12 @@ const Formulario = (() => {
   }
 
   function bloque(definicion, registro) {
+    // Los campos ocultos no se muestran: el sistema los completa solo.
+    if (definicion.oculto) {
+      const valorOculto = registro?.[definicion.campo] ?? definicion.defecto ?? '';
+      return `<input type="hidden" name="${definicion.campo}" value="${esc(valorOculto)}">`;
+    }
+
     if (definicion.tipo === 'casilla') {
       return `<div class="${ANCHOS[definicion.ancho] || ANCHOS.completo}">
           ${control(definicion, registro?.[definicion.campo])}
@@ -494,8 +500,19 @@ const Formulario = (() => {
             campoCodigo.value = datos ? datos.code : '';
           })
           .catch(() => {
-            // Sin número no se puede continuar: se desbloquea para escribirlo
+            // Sin número no se puede continuar: se muestra para escribirlo a mano
             campoCodigo.value = '';
+            if (campoCodigo.type === 'hidden') {
+              campoCodigo.type = 'text';
+              campoCodigo.className =
+                'h-11 w-full rounded-lg border border-input bg-card px-3 text-sm text-foreground ' +
+                'transition placeholder:text-muted-foreground/60 sm:col-span-6 ' +
+                'focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30';
+              const etiqueta = document.createElement('label');
+              etiqueta.className = 'mb-1.5 block text-sm font-medium text-foreground sm:col-span-6';
+              etiqueta.textContent = 'Código';
+              campoCodigo.parentNode.insertBefore(etiqueta, campoCodigo);
+            }
             campoCodigo.readOnly = false;
             campoCodigo.classList.remove('cursor-not-allowed', 'bg-muted', 'text-muted-foreground');
             Interfaz.aviso('No se pudo asignar el código automáticamente; escríbalo a mano', 'aviso');

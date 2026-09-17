@@ -291,6 +291,14 @@ def construir(nombre: str) -> dict:
     usuario = usuario_actual()
     permiso = definicion["permiso"]
 
+    # El rol coordinador no ve los códigos internos en los listados
+    if usuario and usuario.rol_codigo == "COORDINADOR":
+        definicion["columnas"] = [
+            columna
+            for columna in definicion["columnas"]
+            if columna.get("campo") != "code"
+        ]
+
     definicion["nombre"] = nombre
     definicion["formulario"] = formularios.para(nombre)
     # Sin formulario declarado no se ofrece alta ni edición: el botón llevaría

@@ -6,11 +6,12 @@
   <div class="w-full max-w-md space-y-5 animate-slide-up">
 
     <div class="text-center">
-      <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-glow">
+      <div class="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white p-1.5 shadow-glow ring-1 ring-border">
         {% include "componentes/logo.html" %}
       </div>
       <h1 class="mt-4 text-2xl font-bold tracking-tight text-foreground">Registrar asistencia</h1>
       <p class="mt-1 text-sm text-muted-foreground">{{ institucion }}</p>
+      <p class="mt-2 text-xs font-medium text-primary">{{ lema }}</p>
     </div>
 
     {% if not estado %}
@@ -41,16 +42,25 @@
           </div>
         </div>
 
-        {# ── Estado de ubicación ────────────────────────────────── #}
-        <div id="ubicacion-estado" class="mt-4 rounded-xl border border-border bg-card p-3 text-center hidden">
-          <div id="ubicacion-icono" class="mx-auto mb-1 hidden">
-            <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5" aria-hidden="true">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M8 12l3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+        {# ── Validación contra el rango del colegio ─────────────── #}
+        <div id="colegio-estado" class="mt-3 hidden rounded-xl border border-border bg-card p-3">
+          <div class="flex items-center gap-3">
+            <div id="colegio-icono"
+                 class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <svg viewBox="0 0 24 24" fill="none" class="h-5 w-5" aria-hidden="true">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                      stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p id="colegio-titulo" class="text-sm font-medium text-foreground">Verificando ubicación…</p>
+              <p id="colegio-detalle" class="text-xs text-muted-foreground"></p>
+            </div>
+            <span id="colegio-badge"
+                  class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+              Verificando
+            </span>
           </div>
-          <p id="ubicacion-mensaje" class="text-sm text-muted-foreground"></p>
-          <p id="ubicacion-distancia" class="text-xs text-muted-foreground mt-0.5"></p>
         </div>
 
         {# ── Horarios de hoy ─────────────────────────────────────── #}
@@ -171,8 +181,9 @@
     });
   });
 
-  // ═══════ Geolocalización ═══════
+  // ═══════ Geolocalización permanente ═══════
   let posicionActual = null;
+  let configColegio = null;
 
   function distanciaHaversine(lat1, lon1, lat2, lon2) {
     const R = 6371000;
@@ -184,58 +195,90 @@
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  function mostrarUbicacion(pos, config) {
-    const contenedor = document.getElementById('ubicacion-estado');
-    const icono = document.getElementById('ubicacion-icono');
-    const msg = document.getElementById('ubicacion-mensaje');
-    const dist = document.getElementById('ubicacion-distancia');
+  const CLASE_BADGE = 'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ';
+  const CLASE_ICONO = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ';
 
-    if (!config || !config.configured || !config.latitude || !config.longitude) {
+  function pintarEstadoColegio() {
+    const contenedor = document.getElementById('colegio-estado');
+    if (!contenedor) return;
+
+    const configurado = configColegio && configColegio.configured &&
+                        configColegio.latitude != null && configColegio.longitude != null;
+    if (!configurado) {
       contenedor.classList.add('hidden');
+      return;
+    }
+    contenedor.classList.remove('hidden');
+
+    const icono = document.getElementById('colegio-icono');
+    const titulo = document.getElementById('colegio-titulo');
+    const detalle = document.getElementById('colegio-detalle');
+    const badge = document.getElementById('colegio-badge');
+
+    if (!posicionActual) {
+      contenedor.classList.remove('border-emerald-500/40', 'bg-emerald-500/5',
+                                   'border-red-500/40', 'bg-red-500/5');
+      icono.className = CLASE_ICONO + 'bg-primary/10 text-primary';
+      titulo.textContent = 'Esperando señal GPS…';
+      detalle.textContent = `Debe estar dentro de ${configColegio.radiusMeters} m del colegio`;
+      badge.textContent = 'Sin señal';
+      badge.className = CLASE_BADGE + 'bg-muted text-muted-foreground';
       return;
     }
 
     const metros = distanciaHaversine(
-      pos.coords.latitude, pos.coords.longitude,
-      config.latitude, config.longitude
+      posicionActual.latitude, posicionActual.longitude,
+      configColegio.latitude, configColegio.longitude
     );
-    const dentro = metros <= config.radiusMeters;
+    const dentro = metros <= configColegio.radiusMeters;
+    detalle.textContent =
+      `Distancia: ${Math.round(metros)} m · máximo ${configColegio.radiusMeters} m`;
 
-    contenedor.classList.remove('hidden');
     if (dentro) {
-      contenedor.className = contenedor.className.replace(/border-(red|green)-500/g, '');
+      contenedor.classList.remove('border-red-500/40', 'bg-red-500/5');
       contenedor.classList.add('border-emerald-500/40', 'bg-emerald-500/5');
-      icono.className = 'mx-auto mb-1 text-emerald-500';
-      msg.textContent = 'Dentro del colegio';
-      msg.className = 'text-sm font-medium text-emerald-700';
+      icono.className = CLASE_ICONO + 'bg-emerald-500/10 text-emerald-600';
+      titulo.textContent = 'Dentro del rango del colegio';
+      badge.textContent = 'Válido';
+      badge.className = CLASE_BADGE + 'bg-emerald-500/10 text-emerald-700';
     } else {
+      contenedor.classList.remove('border-emerald-500/40', 'bg-emerald-500/5');
       contenedor.classList.add('border-red-500/40', 'bg-red-500/5');
-      icono.className = 'mx-auto mb-1 text-red-500';
-      msg.textContent = 'Fuera del rango del colegio';
-      msg.className = 'text-sm font-medium text-red-700';
+      icono.className = CLASE_ICONO + 'bg-red-500/10 text-red-600';
+      titulo.textContent = 'Fuera del rango del colegio';
+      badge.textContent = 'Rechazado';
+      badge.className = CLASE_BADGE + 'bg-red-500/10 text-red-700';
     }
-    dist.textContent = `Distancia: ${Math.round(metros)}m (máx: ${config.radiusMeters}m)`;
   }
 
+  function guardarPosicion(pos) {
+    posicionActual = {
+      latitude: pos.coords.latitude,
+      longitude: pos.coords.longitude,
+      accuracy: pos.coords.accuracy,
+      source: pos.coords.altitude !== null ? 'gps' : 'network',
+    };
+    pintarEstadoColegio();
+  }
+
+  const opcionesGeo = { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 };
+
+  fetch('/api/v1/settings/location')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((cfg) => {
+      if (cfg && cfg.data) {
+        configColegio = cfg.data;
+        pintarEstadoColegio();
+      }
+    })
+    .catch(() => {});
+
   if ('geolocation' in navigator) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        posicionActual = {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          source: pos.coords.altitude !== null ? 'gps' : 'network',
-        };
-        // Consultar configuración de ubicación del colegio
-        fetch('/api/v1/settings/location')
-          .then(r => r.ok ? r.json() : null)
-          .then(cfg => {
-            if (cfg && cfg.data) mostrarUbicacion(pos, cfg.data);
-          })
-          .catch(() => {});
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    // Seguimiento permanente mientras la pantalla está abierta
+    navigator.geolocation.watchPosition(
+      guardarPosicion,
+      () => pintarEstadoColegio(),
+      opcionesGeo,
     );
   }
 
@@ -243,6 +286,27 @@
   document.querySelectorAll('[data-marcar]').forEach((boton) =>
     boton.addEventListener('click', async () => {
       const tipo = boton.dataset.marcar;
+
+      // Verificación previa: evita el viaje al servidor si claramente está fuera
+      if (configColegio && configColegio.required && configColegio.configured) {
+        if (!posicionActual) {
+          Interfaz.aviso('Active la ubicación del dispositivo para registrar la asistencia', 'error', 7000);
+          return;
+        }
+        const metros = distanciaHaversine(
+          posicionActual.latitude, posicionActual.longitude,
+          configColegio.latitude, configColegio.longitude
+        );
+        if (metros > configColegio.radiusMeters) {
+          Interfaz.aviso(
+            `Está fuera del rango del colegio (${Math.round(metros)} m). ` +
+            `Acérquese a menos de ${configColegio.radiusMeters} m para registrar.`,
+            'error', 8000,
+          );
+          return;
+        }
+      }
+
       document.querySelectorAll('[data-marcar]').forEach((b) => (b.disabled = true));
 
       const payload = { type: tipo };

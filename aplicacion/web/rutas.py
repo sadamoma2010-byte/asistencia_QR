@@ -23,6 +23,10 @@ from . import navegacion
 
 bp = Blueprint("web", __name__)
 
+# Identidad por defecto (se puede cambiar desde la configuración institucional)
+INSTITUCION_POR_DEFECTO = "IED Los Laureles"
+LEMA = "Puntualidad y compromiso con un solo código QR"
+
 
 def con_sesion(permiso: str | None = None):
     """
@@ -63,28 +67,64 @@ def _contexto(titulo: str) -> dict:
         "permisos": {
             "marcar": bool(usuario and usuario.tiene("attendance.self", "attendance.create")),
             "borrar_asistencia": bool(usuario and usuario.rol_codigo == ROL_CONTROL_TOTAL),
+            "editar_ajustes": bool(usuario and usuario.tiene("settings.update")),
+            "reportes": bool(usuario and usuario.tiene("reports.read")),
+            "asistencia": bool(usuario and usuario.tiene("attendance.read")),
         },
         "institucion": configuracion.texto(
-            configuracion.CLAVES["NOMBRE_CORTO"], "Institución Educativa"
+            configuracion.CLAVES["NOMBRE_CORTO"], INSTITUCION_POR_DEFECTO
         ),
+        "lema": LEMA,
     }
 
 
 # ── Acceso ───────────────────────────────────────────────────────────
 
 
+def _portada() -> dict:
+    """Datos de la portada pública: identidad, lema y el QR institucional."""
+    institucion = configuracion.texto(
+        configuracion.CLAVES["NOMBRE_CORTO"], INSTITUCION_POR_DEFECTO
+    )
+    url = configuracion.texto(configuracion.CLAVES["QR_URL"], "")
+
+    qr_svg = ""
+    if url:
+        try:
+            from io import BytesIO
+
+            import segno
+
+            memoria = BytesIO()
+            segno.make(url, error="h").save(
+                memoria, kind="svg", scale=6, dark="#0F172A", border=2
+            )
+            crudo = memoria.getvalue().decode("utf-8")
+            # Se incrusta en el HTML: fuera la declaración XML
+            qr_svg = crudo[crudo.find("<svg"):]
+        except Exception:  # noqa: BLE001 - la portada nunca debe romperse por el QR
+            qr_svg = ""
+
+    return {
+        "institucion": institucion,
+        "lema": LEMA,
+        "qr_svg": qr_svg,
+        "qr_url": url,
+    }
+
+
 @bp.get("/")
 def inicio():
     if usuario_actual():
         return redirect("/dashboard")
-    return render_template("inicio.html")
+    return render_template("inicio.html", **_portada())
 
 
 @bp.get("/login")
 def login():
     if usuario_actual():
         return redirect(request.args.get("redirect") or "/dashboard")
-    return render_template("login.html")
+    return render_template("login.html", **_contexto("Acceso"))
 
 
 # ── Pantallas ────────────────────────────────────────────────────────
@@ -186,6 +226,23 @@ def imagen_qr(formato: str):
         cabeceras["Content-Disposition"] = f'attachment; filename="qr-institucional.{formato}"'
 
     return Response(memoria.getvalue(), mimetype=tipo, headers=cabeceras)
+
+
+@bp.get("/configuracion")
+@con_sesion("settings.read")
+def configuracion_pagina():
+    """
+    Ajustes institucionales.
+
+    Aquí se fija la ubicación del colegio: el punto medio, el radio y si la
+    marcación exige estar dentro de ese rango. También se controla el
+    seguimiento permanente de la ubicación del docente.
+    """
+    return render_template(
+        "configuracion.html",
+        ubicacion=configuracion.ubicacion_colegio(),
+        **_contexto("Configuración"),
+    )
 
 
 @bp.get("/marcar")

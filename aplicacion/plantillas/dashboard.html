@@ -37,11 +37,13 @@
         <p class="text-sm text-muted-foreground">Resumen operativo del {{ panel.date }}</p>
       </div>
     </div>
+    {% if permisos.reportes %}
     <a href="/reportes"
        class="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm
               font-medium text-foreground transition hover:bg-muted">
       Ver reportes
     </a>
+    {% endif %}
   </div>
 
   {# ── Indicadores ────────────────────────────────────────────── #}
@@ -79,32 +81,27 @@
         </div>
       </div>
 
-      {% set maximo = (panel.trend | map(attribute='total') | max) or 1 %}
-      <div class="mt-6 flex h-56 gap-2 sm:gap-3">
+      <div class="mt-6 grid grid-cols-4 gap-3 sm:grid-cols-7">
         {% for dia in panel.trend %}
-        <div class="flex flex-1 flex-col gap-2">
-          <div class="relative flex flex-1 flex-col justify-end gap-0.5">
-            {% if dia.late %}
-            <div class="w-full rounded-t bg-warning transition-all duration-500"
-                 style="height: {{ (dia.late / maximo * 100) | round(1) }}%"
-                 title="{{ dia.late }} tardanza(s)"></div>
-            {% endif %}
-            {% if dia.onTime %}
-            <div class="w-full bg-success transition-all duration-500 {% if not dia.late %}rounded-t{% endif %}"
-                 style="height: {{ (dia.onTime / maximo * 100) | round(1) }}%"
-                 title="{{ dia.onTime }} puntual(es)"></div>
-            {% endif %}
-            {% if not dia.total %}
-            <div class="w-full rounded-t bg-muted" style="height: 3px"></div>
-            {% endif %}
+        {% set on_pct = (dia.onTime / dia.total * 100) | round(1) if dia.total else 0 %}
+        {% set late_end = (on_pct + (dia.late / dia.total * 100 if dia.total else 0)) | round(1) %}
+        <div class="flex flex-col items-center gap-2">
+          <div class="donut h-16 w-16 sm:h-20 sm:w-20"
+               style="--donut: conic-gradient(hsl(var(--primary)) 0 {{ on_pct }}%, #F59E0B {{ on_pct }}% {{ late_end }}%, hsl(var(--muted)) {{ late_end }}% 100%)"
+               title="{{ dia.onTime }} puntual(es) · {{ dia.late }} tardanza(s)">
+            <div class="donut-hueco">
+              <span class="text-sm font-bold tabular-nums text-foreground">{{ dia.total }}</span>
+            </div>
           </div>
-          <div class="text-center">
-            <p class="text-[11px] font-medium text-muted-foreground">{{ dia.date[8:10] }}/{{ dia.date[5:7] }}</p>
-            <p class="text-xs font-semibold text-foreground">{{ dia.total }}</p>
-          </div>
+          <p class="text-[11px] font-medium text-muted-foreground">
+            {{ dia.date[8:10] }}/{{ dia.date[5:7] }}
+          </p>
         </div>
         {% endfor %}
       </div>
+      <p class="mt-4 text-center text-xs text-muted-foreground">
+        Cada anillo muestra el total de marcaciones del día: verde puntuales, ámbar tardanzas.
+      </p>
     </div>
 
     {# ── Salidas pendientes y tardanzas ─────────────────────────── #}
@@ -145,7 +142,9 @@
   <div class="surface-card p-5">
     <div class="flex items-center justify-between gap-3">
       <h3 class="text-base font-semibold text-foreground">Actividad reciente</h3>
+      {% if permisos.asistencia %}
       <a href="/asistencia" class="text-sm font-medium text-primary transition hover:underline">Ver todo</a>
+      {% endif %}
     </div>
 
     {% if panel.recent %}
@@ -164,7 +163,7 @@
         </div>
         <div class="flex shrink-0 items-center gap-2">
           <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium
-                       {% if registro.type == 'CHECK_IN' %}border-primary/20 bg-primary/10 text-indigo-700
+                       {% if registro.type == 'CHECK_IN' %}border-primary/20 bg-primary/10 text-emerald-700
                        {% else %}border-border bg-muted text-slate-700{% endif %}">
             {{ 'Entrada' if registro.type == 'CHECK_IN' else 'Salida' }}
           </span>

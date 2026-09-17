@@ -70,6 +70,10 @@ ICONOS = {
     "roles": _icono(
         '<path d="M12 3l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.2l5.9-.8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
     ),
+    "ajustes": _icono(
+        '<circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>'
+        '<path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.5-2.3.9a7 7 0 00-2-1.2L14.5 3h-5l-.1 2.5a7 7 0 00-2 1.2L5 5.8 3 9.3l2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2L3 14.7l2 3.5 2.3-.9a7 7 0 002 1.2L9.5 21h5l.1-2.5a7 7 0 002-1.2l2.3.9 2-3.5-2-1.5c.1-.4.1-.8.1-1.2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>'
+    ),
 }
 
 
@@ -101,6 +105,7 @@ ESTRUCTURA = (
         (
             ("/usuarios", "Usuarios", "usuarios", "users.read"),
             ("/roles", "Roles", "roles", "roles.read"),
+            ("/configuracion", "Configuración", "ajustes", "settings.read"),
         ),
     ),
 )

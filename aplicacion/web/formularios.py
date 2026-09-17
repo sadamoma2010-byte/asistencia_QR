@@ -75,6 +75,7 @@ FORMULARIOS: dict[str, dict] = {
         "sugerir_codigo": "/teachers/next-code",
         "campos": [
             campo("code", "Código", obligatorio=True, ancho="mitad", automatico=True,
+                  oculto=True,
                   ayuda="Se asigna automáticamente, siguiendo la numeración"),
             campo("document", "Documento", obligatorio=True, ancho="mitad"),
             campo("firstName", "Nombres", obligatorio=True, ancho="mitad"),
@@ -106,7 +107,7 @@ FORMULARIOS: dict[str, dict] = {
             campo("description", "Descripción", "parrafo"),
             campo("weeklyHours", "Horas por semana", "numero", ancho="mitad",
                   minimo=1, maximo=60),
-            campo("color", "Color", "color", ancho="mitad", defecto="#4F46E5",
+            campo("color", "Color", "color", ancho="mitad", defecto="#16A34A",
                   ayuda="Identifica la asignatura en listados y horarios"),
             ESTADO,
             campo("teacherIds", "Docentes que la dictan", "multiple", recurso="teachers",
