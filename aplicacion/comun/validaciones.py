@@ -42,7 +42,7 @@ def _hora(valor: str) -> str:
 
 def _color(valor: str) -> str:
     if not PATRON_COLOR.match(valor.strip()):
-        raise ValueError("debe ser un color hexadecimal, por ejemplo #16A34A")
+        raise ValueError("debe ser un color hexadecimal, por ejemplo #4F46E5")
     return valor.strip()
 
 

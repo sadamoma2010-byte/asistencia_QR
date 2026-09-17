@@ -107,7 +107,7 @@ FORMULARIOS: dict[str, dict] = {
             campo("description", "Descripción", "parrafo"),
             campo("weeklyHours", "Horas por semana", "numero", ancho="mitad",
                   minimo=1, maximo=60),
-            campo("color", "Color", "color", ancho="mitad", defecto="#16A34A",
+            campo("color", "Color", "color", ancho="mitad", defecto="#4F46E5",
                   ayuda="Identifica la asignatura en listados y horarios"),
             ESTADO,
             campo("teacherIds", "Docentes que la dictan", "multiple", recurso="teachers",

@@ -167,7 +167,7 @@ class ServicioAsignaturas(ServicioCRUD):
             name=datos["name"],
             description=datos.get("description") or None,
             weekly_hours=datos.get("weeklyHours"),
-            color=datos.get("color") or "#16A34A",
+            color=datos.get("color") or "#4F46E5",
             status=datos.get("status") or EstadoRegistro.ACTIVO,
         )
 

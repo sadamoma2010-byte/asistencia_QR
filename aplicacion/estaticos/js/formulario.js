@@ -80,9 +80,9 @@ const Formulario = (() => {
 
       case 'color':
         return `<div class="flex items-center gap-2">
-            <input type="color" name="${campo}" value="${esc(v || '#16A34A')}"
+            <input type="color" name="${campo}" value="${esc(v || '#4F46E5')}"
                    class="h-11 w-14 cursor-pointer rounded-lg border border-input bg-card p-1">
-            <input type="text" data-espejo="${campo}" value="${esc(v || '#16A34A')}"
+            <input type="text" data-espejo="${campo}" value="${esc(v || '#4F46E5')}"
                    class="${CLASE_CAMPO}">
           </div>`;
 
