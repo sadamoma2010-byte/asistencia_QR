@@ -6,9 +6,8 @@
   <div class="w-full max-w-md space-y-5 animate-slide-up">
 
     <div class="text-center">
-      <div class="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-primary p-1.5 shadow-glow">
-        {% include "componentes/logo.html" %}
-      </div>
+      {% set tamano_logo = 'mx-auto h-20 w-20' %}
+      {% include "componentes/logo.html" %}
       <h1 class="mt-4 text-2xl font-bold tracking-tight text-foreground">Registrar asistencia</h1>
       <p class="mt-1 text-sm text-muted-foreground">{{ institucion }}</p>
       <p class="mt-2 text-xs font-medium text-primary">{{ lema }}</p>

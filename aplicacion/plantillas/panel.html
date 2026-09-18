@@ -12,9 +12,8 @@
                 backdrop-blur-xl transition-transform duration-300 ease-smooth
                 lg:translate-x-0">
     <div class="flex h-16 items-center gap-3 border-b border-border px-5">
-      <div class="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-primary p-0.5">
-        {% include "componentes/logo.html" %}
-      </div>
+      {% set tamano_logo = 'h-8 w-8' %}
+      {% include "componentes/logo.html" %}
       <div class="min-w-0">
         <p class="truncate text-sm font-semibold text-foreground">Asistencia QR</p>
         <p class="truncate text-xs text-muted-foreground">{{ institucion or 'Institución' }}</p>
