@@ -11,6 +11,7 @@ cualquier enlace guardado siga funcionando.
 
 from __future__ import annotations
 
+import re
 from functools import wraps
 from urllib.parse import quote
 
@@ -101,7 +102,18 @@ def _portada() -> dict:
             )
             crudo = memoria.getvalue().decode("utf-8")
             # Se incrusta en el HTML: fuera la declaración XML
-            qr_svg = crudo[crudo.find("<svg"):]
+            svg = crudo[crudo.find("<svg"):]
+            # segno emite width/height fijos y sin viewBox: al cambiarle el
+            # tamaño desde CSS el dibujo se recorta. El área se conserva como
+            # viewBox y se quitan las medidas para que escale centrado.
+            ancho = re.search(r'width="(\d+(?:\.\d+)?)"', svg)
+            alto = re.search(r'height="(\d+(?:\.\d+)?)"', svg)
+            if ancho and alto:
+                svg = re.sub(r'\s(?:width|height)="\d+(?:\.\d+)?"', "", svg, count=2)
+                svg = svg.replace(
+                    "<svg ", f'<svg viewBox="0 0 {ancho.group(1)} {alto.group(1)}" ', 1
+                )
+            qr_svg = svg
         except Exception:  # noqa: BLE001 - la portada nunca debe romperse por el QR
             qr_svg = ""
 
