@@ -1,6 +1,6 @@
 {# Escudo institucional de la IED Los Laureles (PNG con fondo transparente).
    El tamaño se ajusta con la variable `tamano_logo`, por ejemplo:
-   {% set tamano_logo = 'h-20 w-20' %}{% include "componentes/logo.html" %} #}
+   {% set tamano_logo = 'w-40' %}{% include "componentes/logo.html" %} #}
 <img src="{{ url_for('static', filename='img/logo-ied.png') }}"
      alt="Escudo IED Los Laureles"
-     class="{{ tamano_logo | default('h-16 w-16') }} shrink-0 object-contain" />
+     class="{{ tamano_logo | default('w-40') }} h-auto shrink-0 object-contain" />
